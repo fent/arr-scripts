@@ -184,7 +184,6 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
 
                 SRC_SIZE_BYTES=$(stat -c '%s' "$src_file")
 
-                # HARDENING FIX 1: Explicitly clear loop memory cache values before matching
                 SRC_XXH=""
                 MATCHING_LIB_FILE=""
 
@@ -209,8 +208,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                     done
                 fi
 
-                # HARDENING FIX 2: Double-verify existence and structural containment boundaries
-                if [ -n "$MATCHING_LIB_FILE" ] && [ -f "$MATCHING_LIB_FILE" ] && [ "$src_file" != "$MATCHING_LIB_FILE" ]; then
+                if [ -n "$MATCHING_LIB_FILE" ]; then
                     FILE_SIZE_KBYTES=$((SRC_SIZE_BYTES / 1024))
                     TOTAL_SPACE_SAVED_KBYTES=$((TOTAL_SPACE_SAVED_KBYTES + FILE_SIZE_KBYTES))
                     TOTAL_LINKS_HEALED=$((TOTAL_LINKS_HEALED + 1))
@@ -224,21 +222,20 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                         echo "    -> Link Will Be Created At: $src_file"
                     else
                         echo "    [ACTION] Re-linking: $LIB_FILENAME -> $FILENAME"
-
-                        # HARDENING FIX 3: Guard transaction inside an isolated atomic execution block
                         rm -f "$src_file"
                         if ln "$MATCHING_LIB_FILE" "$src_file"; then
                             NEW_INODE=$(stat -c '%i' "$src_file")
                             echo "$NEW_INODE" >> "$VERIFIED_CACHE"
                             PROCESSED_INODES[$NEW_INODE]=1
                         else
-                            echo "ERROR: CRITICAL FILE TRANSACTION FAILURE! Link creation failed for $src_file"
+                            echo "ERROR: Link creation failed for $src_file"
                             exit 1
                         fi
                     fi
                     echo "----------------------------------------"
                 fi
             fi
+
         done < <(find "$item_path" -type f -print0 2>/dev/null)
     done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
     echo "   Share ${folder} audit complete."

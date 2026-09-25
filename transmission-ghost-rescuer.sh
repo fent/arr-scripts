@@ -50,9 +50,9 @@ echo "=== STARTING TRANSMISSION GHOST-LINK RESCUER ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
 
-AUTH_FLAG=""
+AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
-    AUTH_FLAG="--auth ${TR_USER}:${TR_PASS}"
+    AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
 fi
 
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -61,7 +61,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 echo "Caching active torrent list from Transmission..."
-RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG --list 2>&1)
+RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed."
@@ -74,7 +74,7 @@ fi
 # on Linux, os_specific=false so Win32 reserved chars (", *, :, <, >, ?, \, |) -> '_'.
 # This makes the hashmap key match the literal folder/file name written to disk.
 echo "Building sanitized torrent name index..."
-ALL_TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG -t all --info 2>/dev/null)
+ALL_TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2> /dev/null)
 declare -A LIVE_NAME_MAP
 while IFS= read -r info_line; do
     if [[ "$info_line" =~ ^[[:space:]]+Name:[[:space:]]+(.+)$ ]]; then
@@ -84,7 +84,7 @@ while IFS= read -r info_line; do
             LIVE_NAME_MAP["$disk_name"]=1
         fi
     fi
-done <<<"$ALL_TORRENT_DETAILS"
+done <<< "$ALL_TORRENT_DETAILS"
 echo "Index built (${#LIVE_NAME_MAP[@]} torrents cached)."
 
 TOTAL_RESCUED_COUNT=0
@@ -120,7 +120,7 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
                         break
                     fi
                 fi
-            done < <(find "$item_path" -type f -print0 2>/dev/null)
+            done < <(find "$item_path" -type f -print0 2> /dev/null)
         else
             # If it's a single file, check its link count directly
             if echo "$ITEM_NAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then

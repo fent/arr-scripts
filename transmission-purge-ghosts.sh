@@ -27,9 +27,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                     # Set to 'false' to actively delete files from your disk
-CONTAINER_NAME="transmission"     # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads"   # Parent path where your source folders live
+DRY_RUN=true                    # Set to 'false' to actively delete files from your disk
+CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
+BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -42,12 +42,17 @@ echo "=== STARTING SCRIPT 2: GHOST DATA PURGER (LITERAL FILENAME MATCH) ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
 
-AUTH_FLAG=""
-if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then AUTH_FLAG="--auth ${TR_USER}:${TR_PASS}"; fi
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then echo "ERROR: Container not running."; exit 1; fi
+AUTH_ARGS=()
+if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
+    AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
+fi
+if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "ERROR: Container not running."
+    exit 1
+fi
 
 echo "Pulling deep metadata sheets for all active torrents..."
-ALL_TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG -t all --info 2>&1)
+ALL_TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>&1)
 
 if echo "$ALL_TORRENT_DETAILS" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."
@@ -114,4 +119,3 @@ done
 HUMAN_UNREF_SIZE=$(awk -v kb="$TOTAL_UNREFERENCED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 echo "----------------------------------------"
 echo "=== SUMMARY: Dead Unreferenced Items Reclaimable: $HUMAN_UNREF_SIZE ($UNREF_COUNT items affected) ==="
-

@@ -34,13 +34,13 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                     # Set to 'false' to actively fix and create hard links
-CONTAINER_NAME="transmission"     # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads"   # Parent path where your shares live
+DRY_RUN=true                    # Set to 'false' to actively fix and create hard links
+CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
+BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE"                   # <--- CHANGE THIS
-TR_PASS="YOUR_PASSWORD_HERE"          # <--- CHANGE THIS
+TR_USER="YOUR_USERNAME_HERE"          # <--- CHANGE THIS
+TR_PASS="YOUR_PASSWORD_HERE" # <--- CHANGE THIS
 
 # -----------------------------------------------------------------
 # 1:1 FOLDER MAPPINGS (Configure your matching pairs here)
@@ -68,9 +68,9 @@ echo "Direction Strategy: Pointing FROM Library TO Seeding Folder"
 echo "Optimizations: Exact Name Matching | 20MB Piecewise xxh128sum | De-duplicated Size Hashmaps"
 echo "----------------------------------------"
 
-AUTH_FLAG=""
+AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
-    AUTH_FLAG="--auth ${TR_USER}:${TR_PASS}"
+    AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
 fi
 
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -79,7 +79,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 echo "Caching entire torrent manifest from Transmission..."
-RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG --list 2>&1)
+RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."
@@ -120,7 +120,7 @@ for target_lib in "${!UNIQUED_LIBS[@]}"; do
                 LIB_HASH_MAPS["$map_key"]="${LIB_HASH_MAPS["$map_key"]}${file_path}|"
             fi
         done
-    done < <(find "$target_lib" -type f -print0 2>/dev/null)
+    done < <(find "$target_lib" -type f -print0 2> /dev/null)
 done
 
 echo "Library mapping complete. Starting clean source scanning loop..."
@@ -144,7 +144,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
         CURRENT_INDEX=$((CURRENT_INDEX + 1))
         TOTAL_ITEMS_SCANNED=$((TOTAL_ITEMS_SCANNED + 1))
 
-        if (( CURRENT_INDEX % 50 == 0 || CURRENT_INDEX == TOTAL_ITEMS )); then
+        if ((CURRENT_INDEX % 50 == 0 || CURRENT_INDEX == TOTAL_ITEMS)); then
             printf "   [PROGRESS] %s: %d/%d items evaluated...\n" "$folder" "$CURRENT_INDEX" "$TOTAL_ITEMS"
         fi
 
@@ -196,10 +196,16 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                         if [ -z "$lib_file" ] || [ ! -f "$lib_file" ]; then continue; fi
 
                         if [ -z "$SRC_XXH" ]; then
-                            SRC_XXH=$( (head -c 10M "$src_file"; tail -c 10M "$src_file") | xxh128sum | awk '{print $1}')
+                            SRC_XXH=$( (
+                                head -c 10M "$src_file"
+                                tail -c 10M "$src_file"
+                            ) | xxh128sum | awk '{print $1}')
                         fi
 
-                        LIB_XXH=$( (head -c 10M "$lib_file"; tail -c 10M "$lib_file") | xxh128sum | awk '{print $1}')
+                        LIB_XXH=$( (
+                            head -c 10M "$lib_file"
+                            tail -c 10M "$lib_file"
+                        ) | xxh128sum | awk '{print $1}')
 
                         if [ "$SRC_XXH" = "$LIB_XXH" ]; then
                             MATCHING_LIB_FILE="$lib_file"
@@ -236,7 +242,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                 fi
             fi
 
-        done < <(find "$item_path" -type f -print0 2>/dev/null)
+        done < <(find "$item_path" -type f -print0 2> /dev/null)
     done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
     echo "   Share ${folder} audit complete."
 done
@@ -251,4 +257,3 @@ else
     echo "Summary: Successfully repaired $TOTAL_LINKS_HEALED valid broken hard links, reclaiming: $HUMAN_SAVED_SIZE"
 fi
 echo "========================================"
-

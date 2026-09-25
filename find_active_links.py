@@ -23,6 +23,7 @@
 #   referenced by your Plex/Arr library before freeing disk space.
 # ==============================================================================
 
+import argparse
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -79,10 +80,10 @@ def main():
             print(f"Warning: '{folder_str}' is not a valid directory. Skipping.\n")
             continue
 
-        print(f"==================================================")
+        print("==================================================")
         print(f"Checking: {folder_path.name}")
         print(f"Full path: {folder_path}")
-        print(f"==================================================")
+        print("==================================================")
 
         files = [
             f for f in folder_path.rglob("*")

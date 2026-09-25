@@ -26,9 +26,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                     # Set to 'false' to actively delete from Transmission
-CONTAINER_NAME="transmission"     # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads"   # Parent path where your source folders live
+DRY_RUN=true                    # Set to 'false' to actively delete from Transmission
+CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
+BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -42,9 +42,9 @@ echo "Dry Run Mode: $DRY_RUN"
 echo "Scanning every Torrent ID in the database (this will take a while)..."
 echo "----------------------------------------"
 
-AUTH_FLAG=""
+AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
-    AUTH_FLAG="--auth ${TR_USER}:${TR_PASS}"
+    AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
 fi
 
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -53,7 +53,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 echo "Caching entire torrent manifest from Transmission..."
-RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG --list 2>&1)
+RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."
@@ -74,7 +74,7 @@ for tid in $ALL_IDS; do
     if [[ "$tid" =~ ^[0-9]+$ ]]; then
 
         # Query the explicit, untruncated internal metadata block for this database index
-        TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG -t "$tid" --info 2>/dev/null)
+        TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
         TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found")
@@ -113,7 +113,7 @@ for tid in $ALL_IDS; do
                 else
                     echo "[ACTION] Purging tracker error ($ITEM_HUMAN_SIZE): $TORRENT_NAME"
                     echo "    * Log details: $TRACKER_ERROR_MSG"
-                    docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG -t "$tid" --remove-and-delete > /dev/null
+                    docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove-and-delete > /dev/null
                     echo "----------------------------------------"
                 fi
             fi
@@ -126,4 +126,3 @@ HUMAN_ERROR_SIZE=$(awk -v kb="$TOTAL_TRACKER_ERR_KBYTES" 'BEGIN {printf (kb>=104
 
 echo "----------------------------------------"
 echo "=== SUMMARY: Dead Tracker Error Torrents Reclaimable: $HUMAN_ERROR_SIZE ($TRACKER_ERR_COUNT torrents affected) ==="
-

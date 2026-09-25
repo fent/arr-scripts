@@ -26,6 +26,7 @@
 #   the Plex library so they can be re-imported or investigated.
 # ==============================================================================
 
+import argparse
 import fnmatch
 import sys
 from pathlib import Path
@@ -66,7 +67,7 @@ def collect_target_dirs(base_download_dir: Path, search_terms: list[str]) -> lis
                 matched.add(entry)
                 break
 
-    return sorted(list(matched))
+    return sorted(matched)
 
 
 def main():

@@ -25,9 +25,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                     # Set to 'false' to actively delete from Transmission
-CONTAINER_NAME="transmission"     # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads"   # Parent path where your source folders live
+DRY_RUN=true                    # Set to 'false' to actively delete from Transmission
+CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
+BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -47,11 +47,16 @@ echo "=== STARTING SCRIPT 1: SEEDING ORPHANS CLEANUP ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
 
-AUTH_FLAG=""
-if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then AUTH_FLAG="--auth ${TR_USER}:${TR_PASS}"; fi
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then echo "ERROR: Container not running."; exit 1; fi
+AUTH_ARGS=()
+if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
+    AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
+fi
+if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    echo "ERROR: Container not running."
+    exit 1
+fi
 
-RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG --list 2>&1)
+RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 TOTAL_ORPHAN_KBYTES=0
 ORPHAN_COUNT=0
 
@@ -62,19 +67,23 @@ for folder in "${TARGET_FOLDERS[@]}"; do
 
     while read -r -d $'\0' item_path; do
         ITEM_NAME=$(basename "$item_path")
-        has_media=false; still_linked=false
+        has_media=false
+        still_linked=false
 
         if [ -d "$item_path" ]; then
             while read -r -d $'\0' media_file; do
                 if echo "$(basename "$media_file")" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
                     has_media=true
-                    if [ $(stat -c '%h' "$media_file") -gt 1 ]; then still_linked=true; break; fi
+                    if [ "$(stat -c '%h' "$media_file")" -gt 1 ]; then
+                        still_linked=true
+                        break
+                    fi
                 fi
             done < <(find "$item_path" -type f -print0 2>/dev/null)
         else
             if echo "$ITEM_NAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
                 has_media=true
-                if [ $(stat -c '%h' "$item_path") -gt 1 ]; then still_linked=true; fi
+                if [ "$(stat -c '%h' "$item_path")" -gt 1 ]; then still_linked=true; fi
             fi
         fi
 
@@ -84,7 +93,10 @@ for folder in "${TARGET_FOLDERS[@]}"; do
         while read -r raw_row; do
             ROW_CLEAN=$(echo "$raw_row" | sed 's/ \+/ /g' | sed 's/^ //')
             LINE_NAME=$(echo "$ROW_CLEAN" | awk '{out=""; for(i=10;i<=NF;i++){out=out $i " "}; sub(/ $/,"",out); print out}')
-            if [ "$LINE_NAME" = "$ITEM_NAME" ]; then TORRENT_ROW="$ROW_CLEAN"; break; fi
+            if [ "$LINE_NAME" = "$ITEM_NAME" ]; then
+                TORRENT_ROW="$ROW_CLEAN"
+                break
+            fi
         done < <(echo "$RAW_MANIFEST" | grep -F "$ITEM_NAME")
 
         if [ -n "$TORRENT_ROW" ]; then
@@ -104,7 +116,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
 
             ITEM_EPOCH=$(stat -c '%Y' "$item_path")
             NOW_EPOCH=$(date +%s)
-            DAYS_SEEDING=$(( (NOW_EPOCH - ITEM_EPOCH) / 86400 ))
+            DAYS_SEEDING=$(((NOW_EPOCH - ITEM_EPOCH) / 86400))
 
             RATIO_PASS=$(awk -v r1="$CURRENT_RATIO" -v r2="$MIN_RATIO" 'BEGIN {print (r1 >= r2) ? 1 : 0}')
 
@@ -118,7 +130,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                     echo "[DRY-RUN] Would purge orphan ($ITEM_HUMAN_SIZE): $ITEM_NAME (ID: $TORRENT_ID) | Ratio: $CURRENT_RATIO | Age: $DAYS_SEEDING days"
                 else
                     echo "[ACTION] Purging orphan ($ITEM_HUMAN_SIZE): $ITEM_NAME"
-                    docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG -t "$TORRENT_ID" --remove-and-delete > /dev/null
+                    docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove-and-delete >/dev/null
                 fi
             fi
         fi
@@ -128,4 +140,3 @@ done
 HUMAN_ORPHAN_SIZE=$(awk -v kb="$TOTAL_ORPHAN_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 echo "----------------------------------------"
 echo "=== SUMMARY: Seeding Orphans Reclaimable: $HUMAN_ORPHAN_SIZE ($ORPHAN_COUNT torrents affected) ==="
-

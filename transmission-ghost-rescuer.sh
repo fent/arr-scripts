@@ -1,5 +1,34 @@
 #!/bin/bash
 
+# ==============================================================================
+# SCRIPT DESCRIPTION: GHOST LINK RESCUER
+# ==============================================================================
+# PURPOSE:
+#   Identifies download folder items that have disappeared from Transmission's
+#   session (e.g. after a Transmission database reset or container recreate)
+#   but whose files are still on disk AND still hard-linked to the Plex library.
+#   These "ghost" items are safe to re-add to Transmission for continued seeding
+#   because their data is intact and their library link is already in place.
+#
+# HOW IT WORKS:
+#   1. Builds an exact-match hashmap of all torrent names currently known to
+#      Transmission, applying the same filename sanitization rules Transmission
+#      uses on disk (Win32 reserved chars → '_').
+#   2. Walks each configured download folder and flags items NOT found in the
+#      hashmap (i.e. missing from Transmission's session).
+#   3. For each missing item, checks whether it still has a hard link to the
+#      Plex library (link count > 1). Only linked items are flagged as rescue
+#      candidates — unlinked items are left for the orphan or ghost purgers.
+#   4. Reports all rescue candidates so they can be re-added to Transmission.
+#
+# SAFETY GATES:
+#   - Only flags items with confirmed library hard links; lone disk copies are
+#     ignored and handled by other scripts.
+#   - DRY_RUN mode (default) reports candidates without taking any action.
+#   - Actual re-injection requires the original .torrent file or magnet link
+#     and is intentionally left as a manual step.
+# ==============================================================================
+
 # ==========================================
 # CONFIGURATION
 # ==========================================

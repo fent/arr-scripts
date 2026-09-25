@@ -1,5 +1,31 @@
 #!/usr/bin/env python3
-import argparse
+
+# ==============================================================================
+# SCRIPT DESCRIPTION: MISSING HARD LINK FINDER
+# ==============================================================================
+# PURPOSE:
+#   Scans download folders (matched by name, substring, or glob) for video
+#   files that have NOT been hard-linked into a target series media folder.
+#   These are episodes that were downloaded but never imported by Sonarr/Radarr,
+#   or whose library entry was deleted after import.
+#
+# HOW IT WORKS:
+#   1. Searches the downloads root for folders matching your --search terms.
+#   2. Indexes all video file inodes currently in the target media series folder.
+#   3. Walks every matched download folder and flags files whose inode is absent
+#      from the media index — meaning no hard link exists in the library.
+#
+# USAGE:
+#   python3 find_unlinked.py \
+#       -d /mnt/user/downloads/.tv \
+#       -m /mnt/user/media/TV/MyShow \
+#       -s "MyShow" "My.Show"
+#
+# USE CASE:
+#   Identify which specific episodes in your download folders are missing from
+#   the Plex library so they can be re-imported or investigated.
+# ==============================================================================
+
 import fnmatch
 import sys
 from pathlib import Path

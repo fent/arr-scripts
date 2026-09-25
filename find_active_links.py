@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
-import argparse
+
+# ==============================================================================
+# SCRIPT DESCRIPTION: HARD LINK AUDIT TOOL
+# ==============================================================================
+# PURPOSE:
+#   Given one or more download folders and a media library directory, this
+#   script reports which video files in the download folders still have an
+#   active hard link inside the media library and which do not.
+#
+# HOW IT WORKS:
+#   1. Indexes all video files in the media library directory by (device, inode).
+#   2. Walks each specified download folder and checks every video file's inode
+#      against that index.
+#   3. Prints a per-file [STILL LINKED] or [NOT LINKED] result and a summary.
+#
+# USAGE:
+#   python3 find_active_links.py -m /mnt/user/media/TV/MyShow \
+#       -f /mnt/user/downloads/.tv/MyShow.S01 /mnt/user/downloads/.tv/MyShow.S02
+#
+# USE CASE:
+#   Quickly verify whether a particular set of download folders are still
+#   referenced by your Plex/Arr library before freeing disk space.
+# ==============================================================================
+
 import sys
 from collections import defaultdict
 from pathlib import Path

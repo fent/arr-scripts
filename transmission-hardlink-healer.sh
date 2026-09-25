@@ -1,5 +1,36 @@
 #!/bin/bash
 
+# ==============================================================================
+# SCRIPT DESCRIPTION: DUPLICATE FILE HARD LINK HEALER
+# ==============================================================================
+# PURPOSE:
+#   Reclaims wasted disk space caused by Sonarr/Radarr being misconfigured to
+#   copy files on import instead of creating hard links. When this happens, both
+#   the seeding download folder and the Plex library folder contain a full
+#   independent copy of the same file, doubling the space used. This script
+#   finds those duplicate pairs and collapses them into a single hard link,
+#   so both paths point to the same inode and only one copy occupies disk space.
+#
+# HOW IT WORKS:
+#   1. Builds an in-memory size-keyed index of every file in your library folders.
+#   2. Walks each configured seeding folder, skipping items not tracked by
+#      Transmission and files that are already hard-linked (link count > 1).
+#   3. For each unlinked file, finds size-matching library candidates and
+#      confirms the match with a fast xxh128 hash of the first+last 10 MB.
+#   4. On a confirmed match, atomically replaces the seeding file with a hard
+#      link to the library file, reclaiming the duplicate copy's disk space.
+#
+# OPTIMIZATIONS:
+#   - De-duplicates library paths shared across multiple source folders.
+#   - Persists a verified-inode cache across runs to skip already-confirmed files.
+#   - Only reads 20 MB per file pair for content verification (head + tail).
+#
+# SAFETY GATES:
+#   - DRY_RUN mode (default) shows all planned changes without touching anything.
+#   - Hard link creation is guarded: if ln fails, the script exits immediately
+#     rather than leaving the seeding file deleted.
+# ==============================================================================
+
 # ==========================================
 # CONFIGURATION
 # ==========================================

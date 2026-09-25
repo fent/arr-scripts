@@ -43,7 +43,7 @@ MIN_RATIO="2.0"
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
 
-echo "=== STARTING SCRIPT 1: SEEDING ORPHANS CLEANUP ==="
+echo "=== STARTING SEEDING ORPHANS CLEANUP ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
 
@@ -52,7 +52,7 @@ if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
     AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
 fi
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "ERROR: Container not running."
+    echo "ERROR: Docker container '${CONTAINER_NAME}' is not running."
     exit 1
 fi
 
@@ -79,7 +79,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                         break
                     fi
                 fi
-            done < <(find "$item_path" -type f -print0 2>/dev/null)
+            done < <(find "$item_path" -type f -print0 2> /dev/null)
         else
             if echo "$ITEM_NAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
                 has_media=true
@@ -130,7 +130,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                     echo "[DRY-RUN] Would purge orphan ($ITEM_HUMAN_SIZE): $ITEM_NAME (ID: $TORRENT_ID) | Ratio: $CURRENT_RATIO | Age: $DAYS_SEEDING days"
                 else
                     echo "[ACTION] Purging orphan ($ITEM_HUMAN_SIZE): $ITEM_NAME"
-                    docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove-and-delete >/dev/null
+                    docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove-and-delete > /dev/null
                 fi
             fi
         fi

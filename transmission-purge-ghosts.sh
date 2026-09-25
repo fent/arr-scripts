@@ -38,7 +38,7 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # Target subdirectories to audit (Excluding .music)
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
-echo "=== STARTING SCRIPT 2: GHOST DATA PURGER (LITERAL FILENAME MATCH) ==="
+echo "=== STARTING GHOST DATA PURGER ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
 
@@ -47,7 +47,7 @@ if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
     AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
 fi
 if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "ERROR: Container not running."
+    echo "ERROR: Docker container '${CONTAINER_NAME}' is not running."
     exit 1
 fi
 

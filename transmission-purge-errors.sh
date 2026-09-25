@@ -37,9 +37,9 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # Target subdirectories to audit (Excluding .music)
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
-echo "=== STARTING SCRIPT 3: ITERATIVE ID TRACKER ERROR PURGE ==="
+echo "=== STARTING TRACKER ERROR PURGE ==="
 echo "Dry Run Mode: $DRY_RUN"
-echo "Scanning every Torrent ID in the database (this will take a while)..."
+echo "Scanning every torrent ID in the database (this will take a while)..."
 echo "----------------------------------------"
 
 AUTH_ARGS=()

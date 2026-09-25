@@ -141,13 +141,11 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
 
             HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
 
-            echo "[RESCUE CANDIDATE] ($HUMAN_SIZE): $ITEM_NAME"
-            echo "   -> Reason: 0 bytes to delete (already safely linked to library)."
-
             if [ "$DRY_RUN" = true ]; then
-                echo "   -> Action: [DRY-RUN] Would re-inject torrent metadata to resume seeding."
+                echo "[DRY-RUN] Rescue candidate ($HUMAN_SIZE): $ITEM_NAME"
+                echo "    -> Already hard-linked to library; safe to re-add to Transmission."
             else
-                echo "   -> [ACTION] Re-injecting to Transmission..."
+                echo "[ACTION] Re-injecting to Transmission ($HUMAN_SIZE): $ITEM_NAME"
                 # NOTE: To perform automatic injection, the original .torrent file or magnet link
                 # is needed. For now, this step alerts you with the exact path so it can be re-added safely.
                 # If your torrent backup folder is known, we can automate the exact trigger line here.
@@ -160,6 +158,5 @@ done
 
 HUMAN_TOTAL_SIZE=$(awk -v kb="$TOTAL_RESCUED_SIZE_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
-echo "=== RESCUER AUDIT COMPLETE ==="
-echo "Total Safe Hard-Linked Ghosts Preserved: $TOTAL_RESCUED_COUNT ($HUMAN_TOTAL_SIZE total payload size)"
-echo "========================================"
+echo "----------------------------------------"
+echo "=== SUMMARY: Ghost Rescue Candidates Found: $TOTAL_RESCUED_COUNT ($HUMAN_TOTAL_SIZE) ==="

@@ -62,10 +62,8 @@ STATE_DIR="${SCRIPT_DIR}/transmission_healer_state"
 VERIFIED_CACHE="${STATE_DIR}/verified_inodes.cache"
 mkdir -p "$STATE_DIR"
 
-echo "=== STARTING TRANSMISSION ISOLATED-HASHMAP HEALER ==="
+echo "=== STARTING DUPLICATE FILE HARD LINK HEALER ==="
 echo "Dry Run Mode: $DRY_RUN"
-echo "Direction Strategy: Pointing FROM Library TO Seeding Folder"
-echo "Optimizations: Exact Name Matching | 20MB Piecewise xxh128sum | De-duplicated Size Hashmaps"
 echo "----------------------------------------"
 
 AUTH_ARGS=()
@@ -224,8 +222,8 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
 
                     echo "[MATCH FOUND] ($HUMAN_SIZE): $FILENAME"
                     if [ "$DRY_RUN" = true ]; then
-                        echo "    * Library Source Target: $MATCHING_LIB_FILE"
-                        echo "    -> Link Will Be Created At: $src_file"
+                        echo "    -> Library file: $MATCHING_LIB_FILE"
+                        echo "    -> Link will be created at: $src_file"
                     else
                         echo "    [ACTION] Re-linking: $LIB_FILENAME -> $FILENAME"
                         rm -f "$src_file"
@@ -244,16 +242,16 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
 
         done < <(find "$item_path" -type f -print0 2> /dev/null)
     done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
-    echo "   Share ${folder} audit complete."
 done
 
 HUMAN_SAVED_SIZE=$(awk -v kb="$TOTAL_SPACE_SAVED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
-echo -e "\\n=== LINK HEALER COMPLETE ==="
+echo ""
+echo "=== LINK HEALER COMPLETE ==="
 echo "Total Items Evaluated Across Shares: $TOTAL_ITEMS_SCANNED"
 if [ "$DRY_RUN" = true ]; then
-    echo "Summary: Found $TOTAL_LINKS_HEALED valid torrent items with broken links. Repairing them will restore shared space of: $HUMAN_SAVED_SIZE"
+    echo "=== SUMMARY: $TOTAL_LINKS_HEALED unlinked files found. Linking them will reclaim: $HUMAN_SAVED_SIZE ==="
 else
-    echo "Summary: Successfully repaired $TOTAL_LINKS_HEALED valid broken hard links, reclaiming: $HUMAN_SAVED_SIZE"
+    echo "=== SUMMARY: Successfully re-linked $TOTAL_LINKS_HEALED files, reclaiming: $HUMAN_SAVED_SIZE ==="
 fi
 echo "========================================"

@@ -58,35 +58,21 @@ fi
 # POPULATE HASHMAP WITH LITERAL DISK PAYLOAD PATH NAMES
 # -----------------------------------------------------------------
 declare -A LIVE_FILENAME_MAP
-IN_FILES_SECTION=false
 
-while read -r info_line; do
-    # Detect the file tree block start
-    if [[ "$info_line" =~ ^File\(s\): ]]; then
-        IN_FILES_SECTION=true
-        continue
-    fi
-
-    # Detect when the file section ends (moves to another torrent block)
-    if [[ "$info_line" =~ ^NAME:\  || "$info_line" =~ ^Id:\  ]]; then
-        IN_FILES_SECTION=false
-    fi
-
-    if [ "$IN_FILES_SECTION" = true ]; then
-        # Transmission outputs files as: "  path/to/file.mkv (size)"
-        # Strip leading spaces and extract just the top-level folder/file name component
-        CLEAN_LINE=$(echo "$info_line" | sed 's/^ \+//')
-        if [ -n "$CLEAN_LINE" ]; then
-            # Extract the first segment before the first slash (the actual root directory/file name on disk)
-            ROOT_DISK_NAME=$(echo "$CLEAN_LINE" | cut -d'/' -f1)
-
-            if [ -n "$ROOT_DISK_NAME" ]; then
-                # Map the exact literal binary folder string directly as an active tracker key
-                LIVE_FILENAME_MAP["$ROOT_DISK_NAME"]=1
-            fi
+while IFS= read -r info_line; do
+    # Extract the "  Name: <value>" field from each torrent block.
+    if [[ "$info_line" =~ ^[[:space:]]+Name:[[:space:]]+(.+)$ ]]; then
+        disk_name="${BASH_REMATCH[1]}"
+        if [ -n "$disk_name" ]; then
+            # Apply Transmission's sanitize_subpath rules (libtransmission/torrent-files.cc).
+            # On Linux, os_specific=false so it replaces Win32 reserved chars AND control chars:
+            #   " * : < > ? \ |  ->  _
+            # (Forward slash is handled as a path separator, not present in the root name.)
+            disk_name=$(printf '%s' "$disk_name" | tr '"*:<>?\\|' '_________')
+            LIVE_FILENAME_MAP["$disk_name"]=1
         fi
     fi
-done < <(echo "$ALL_TORRENT_DETAILS")
+done <<< "$ALL_TORRENT_DETAILS"
 
 echo "Database mapping complete (${#LIVE_FILENAME_MAP[@]} physical root assets cached)."
 echo "Scanning physical disks..."

@@ -37,9 +37,6 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # Target subdirectories to audit (Excluding .music)
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
-# Media Extensions Filter
-MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
-
 echo "=== STARTING SCRIPT 3: ITERATIVE ID TRACKER ERROR PURGE ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "Scanning every Torrent ID in the database (this will take a while)..."

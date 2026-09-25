@@ -3,13 +3,13 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                     # Set to 'false' to actively resume/re-inject into Transmission
-CONTAINER_NAME="transmission"     # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads"   # Parent path where your shares live
+DRY_RUN=true                    # Set to 'false' to actively resume/re-inject into Transmission
+CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
+BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE"                   # <--- CHANGE THIS
-TR_PASS="YOUR_PASSWORD_HERE"          # <--- CHANGE THIS
+TR_USER="YOUR_USERNAME_HERE"          # <--- CHANGE THIS
+TR_PASS="YOUR_PASSWORD_HERE" # <--- CHANGE THIS
 
 # Source folders to inspect for ghost assets
 SOURCE_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
@@ -39,22 +39,40 @@ if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     exit 1
 fi
 
+# Build a hashmap of sanitized torrent names for O(1) exact-match lookups.
+# We use --info (not --list) so we get the full untruncated Name: field.
+# We then apply Transmission's sanitize_subpath rules (libtransmission/torrent-files.cc):
+# on Linux, os_specific=false so Win32 reserved chars (", *, :, <, >, ?, \, |) -> '_'.
+# This makes the hashmap key match the literal folder/file name written to disk.
+echo "Building sanitized torrent name index..."
+ALL_TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote $AUTH_FLAG -t all --info 2>/dev/null)
+declare -A LIVE_NAME_MAP
+while IFS= read -r info_line; do
+    if [[ "$info_line" =~ ^[[:space:]]+Name:[[:space:]]+(.+)$ ]]; then
+        disk_name="${BASH_REMATCH[1]}"
+        if [ -n "$disk_name" ]; then
+            disk_name=$(printf '%s' "$disk_name" | tr '"*:<>?\\|' '_________')
+            LIVE_NAME_MAP["$disk_name"]=1
+        fi
+    fi
+done <<<"$ALL_TORRENT_DETAILS"
+echo "Index built (${#LIVE_NAME_MAP[@]} torrents cached)."
+
 TOTAL_RESCUED_COUNT=0
 TOTAL_RESCUED_SIZE_KBYTES=0
 
 for folder in "${SOURCE_FOLDERS[@]}"; do
     CURRENT_SRC_DIR="${BASE_PATH}/${folder}"
     if [ ! -d "$CURRENT_SRC_DIR" ]; then continue; fi
-    
+
     echo "Auditing folder for link-connected ghosts: $CURRENT_SRC_DIR"
-    
+
     # Scan everything at depth 1 (files and folders)
     while read -r -d $'\0' item_path; do
         ITEM_NAME=$(basename "$item_path")
-        
-        # Fast RAM check: If the item ALREADY exists in Transmission, skip it!
-        SHORT_MATCH=$(echo "$ITEM_NAME" | cut -c 1-30)
-        if echo "$RAW_MANIFEST" | grep -q -F "$SHORT_MATCH"; then
+
+        # Exact hashmap lookup against sanitized torrent names — skip if already in Transmission
+        if [ "${LIVE_NAME_MAP["$ITEM_NAME"]+_}" ]; then
             continue
         fi
 
@@ -62,7 +80,7 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
         # Now verify if it has a hard link in the Plex library (Link Count >= 2)
         is_linked_ghost=false
         item_size_kb=0
-        
+
         if [ -d "$item_path" ]; then
             # If it's a folder, look inside for a media file that has links
             while read -r -d $'\0' media_file; do
@@ -91,23 +109,23 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
             item_size_kb=$(du -s "$item_path" | awk '{print $1}')
             TOTAL_RESCUED_SIZE_KBYTES=$((TOTAL_RESCUED_SIZE_KBYTES + item_size_kb))
             TOTAL_RESCUED_COUNT=$((TOTAL_RESCUED_COUNT + 1))
-            
+
             HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
-            
+
             echo "[RESCUE CANDIDATE] ($HUMAN_SIZE): $ITEM_NAME"
             echo "   -> Reason: 0 bytes to delete (already safely linked to library)."
-            
+
             if [ "$DRY_RUN" = true ]; then
                 echo "   -> Action: [DRY-RUN] Would re-inject torrent metadata to resume seeding."
             else
                 echo "   -> [ACTION] Re-injecting to Transmission..."
-                # NOTE: To perform automatic injection, the original .torrent file or magnet link 
+                # NOTE: To perform automatic injection, the original .torrent file or magnet link
                 # is needed. For now, this step alerts you with the exact path so it can be re-added safely.
                 # If your torrent backup folder is known, we can automate the exact trigger line here.
             fi
             echo "----------------------------------------"
         fi
-        
+
     done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
 done
 
@@ -116,4 +134,3 @@ HUMAN_TOTAL_SIZE=$(awk -v kb="$TOTAL_RESCUED_SIZE_KBYTES" 'BEGIN {printf (kb>=10
 echo "=== RESCUER AUDIT COMPLETE ==="
 echo "Total Safe Hard-Linked Ghosts Preserved: $TOTAL_RESCUED_COUNT ($HUMAN_TOTAL_SIZE total payload size)"
 echo "========================================"
-

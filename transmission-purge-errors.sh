@@ -142,7 +142,8 @@ for tid in $ALL_IDS; do
                 printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_ID" "$tid" "$err_width" "$disp_err"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove-and-delete > /dev/null < /dev/null
+                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
+                    rm -rf "$ITEM_PATH"
                 fi
             fi
         fi

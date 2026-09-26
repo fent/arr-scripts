@@ -138,7 +138,12 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                     disp_name="${disp_name:0:$trunc_len}..."
                 fi
 
-                printf "%-*s | %-*s | %-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d"
+                # Compensate for Bash printf multibyte padding bug
+                len_char=${#disp_name}
+                len_byte=$(printf "%s" "$disp_name" | wc -c)
+                name_width=$((COL_NAME + len_byte - len_char))
+
+                printf "%-*s | %-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d"
 
                 if [ "$DRY_RUN" = false ]; then
                     docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove-and-delete > /dev/null

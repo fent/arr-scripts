@@ -129,7 +129,17 @@ for tid in $ALL_IDS; do
                     disp_err="${disp_err:0:$trunc_err}..."
                 fi
 
-                printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_ID" "$tid" "$COL_ERROR" "$disp_err"
+                # Compensate for Bash printf multibyte padding bug on Name
+                len_char_name=${#disp_name}
+                len_byte_name=$(printf "%s" "$disp_name" | wc -c)
+                name_width=$((COL_NAME + len_byte_name - len_char_name))
+
+                # Compensate for Bash printf multibyte padding bug on Error
+                len_char_err=${#disp_err}
+                len_byte_err=$(printf "%s" "$disp_err" | wc -c)
+                err_width=$((COL_ERROR + len_byte_err - len_char_err))
+
+                printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_ID" "$tid" "$err_width" "$disp_err"
 
                 if [ "$DRY_RUN" = false ]; then
                     docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove-and-delete > /dev/null

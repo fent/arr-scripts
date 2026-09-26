@@ -160,7 +160,12 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
                 disp_name="${disp_name:0:$trunc_len}..."
             fi
 
-            printf "%-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE"
+            # Compensate for Bash printf multibyte padding bug
+            len_char=${#disp_name}
+            len_byte=$(printf "%s" "$disp_name" | wc -c)
+            name_width=$((COL_NAME + len_byte - len_char))
+
+            printf "%-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE"
 
             if [ "$DRY_RUN" = false ]; then
                 # NOTE: To perform automatic injection, the original .torrent file or magnet link

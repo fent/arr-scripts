@@ -182,9 +182,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
 
                 SRC_SIZE_BYTES=$(stat -c '%s' "$src_file")
 
-                SRC_XXH=""
                 MATCHING_LIB_FILE=""
-
                 map_key="${folder}_${SRC_SIZE_BYTES}"
                 MATCH_STRING="${LIB_HASH_MAPS["$map_key"]}"
 
@@ -193,19 +191,10 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                     for lib_file in "${potential_matches[@]}"; do
                         if [ -z "$lib_file" ] || [ ! -f "$lib_file" ]; then continue; fi
 
-                        if [ -z "$SRC_XXH" ]; then
-                            SRC_XXH=$( (
-                                head -c 10M "$src_file"
-                                tail -c 10M "$src_file"
-                            ) | xxh128sum | awk '{print $1}')
-                        fi
-
-                        LIB_XXH=$( (
-                            head -c 10M "$lib_file"
-                            tail -c 10M "$lib_file"
-                        ) | xxh128sum | awk '{print $1}')
-
-                        if [ "$SRC_XXH" = "$LIB_XXH" ]; then
+                        # Perform a full 100% byte-for-byte comparison.
+                        # `cmp -s` streams the files and exits instantly on the very first mismatched byte,
+                        # making it maximally efficient without having to hash the entire file upfront.
+                        if cmp -s "$src_file" "$lib_file"; then
                             MATCHING_LIB_FILE="$lib_file"
                             break
                         fi

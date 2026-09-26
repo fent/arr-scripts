@@ -40,9 +40,6 @@ TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 MIN_SEEDING_DAYS=30
 MIN_RATIO="2.0"
 
-# Media Extensions Filter
-MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
-
 echo "=== STARTING SEEDING ORPHANS CLEANUP ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
@@ -67,27 +64,22 @@ for folder in "${TARGET_FOLDERS[@]}"; do
 
     while read -r -d $'\0' item_path; do
         ITEM_NAME=$(basename "$item_path")
-        has_media=false
         still_linked=false
 
         if [ -d "$item_path" ]; then
-            while read -r -d $'\0' media_file; do
-                if echo "$(basename "$media_file")" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
-                    has_media=true
-                    if [ "$(stat -c '%h' "$media_file")" -gt 1 ]; then
-                        still_linked=true
-                        break
-                    fi
+            while read -r -d $'\0' file_in_folder; do
+                if [ "$(stat -c '%h' "$file_in_folder")" -gt 1 ]; then
+                    still_linked=true
+                    break
                 fi
             done < <(find "$item_path" -type f -print0 2> /dev/null)
         else
-            if echo "$ITEM_NAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
-                has_media=true
-                if [ "$(stat -c '%h' "$item_path")" -gt 1 ]; then still_linked=true; fi
+            if [ "$(stat -c '%h' "$item_path")" -gt 1 ]; then
+                still_linked=true
             fi
         fi
 
-        if [ "$has_media" = false ] || [ "$still_linked" = true ]; then continue; fi
+        if [ "$still_linked" = true ]; then continue; fi
 
         TORRENT_ROW=""
         while read -r raw_row; do

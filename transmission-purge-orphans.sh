@@ -63,6 +63,10 @@ fi
 RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 TOTAL_ORPHAN_KBYTES=0
 ORPHAN_COUNT=0
+MATCHED_RATIO_COUNT=0
+MATCHED_AGE_COUNT=0
+MATCHED_BOTH_COUNT=0
+
 for folder in "${TARGET_FOLDERS[@]}"; do
     CURRENT_DIR="${BASE_PATH}/${folder}"
     if [ ! -d "$CURRENT_DIR" ]; then continue; fi
@@ -121,6 +125,15 @@ for folder in "${TARGET_FOLDERS[@]}"; do
             RATIO_PASS=$(awk -v r1="$CURRENT_RATIO" -v r2="$MIN_RATIO" 'BEGIN {print (r1 >= r2) ? 1 : 0}')
 
             if [ "$DAYS_SEEDING" -ge "$MIN_SEEDING_DAYS" ] || [ "$RATIO_PASS" -eq 1 ]; then
+
+                if [ "$RATIO_PASS" -eq 1 ] && [ "$DAYS_SEEDING" -ge "$MIN_SEEDING_DAYS" ]; then
+                    MATCHED_BOTH_COUNT=$((MATCHED_BOTH_COUNT + 1))
+                elif [ "$RATIO_PASS" -eq 1 ]; then
+                    MATCHED_RATIO_COUNT=$((MATCHED_RATIO_COUNT + 1))
+                else
+                    MATCHED_AGE_COUNT=$((MATCHED_AGE_COUNT + 1))
+                fi
+
                 ITEM_KBYTES=$(du -s "$item_path" | awk '{print $1}')
                 TOTAL_ORPHAN_KBYTES=$((TOTAL_ORPHAN_KBYTES + ITEM_KBYTES))
                 ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
@@ -163,4 +176,11 @@ if [ "$DRY_RUN" = true ]; then
     echo "=== SUMMARY: [DRY-RUN] $ORPHAN_COUNT orphans found, would reclaim $HUMAN_ORPHAN_SIZE ==="
 else
     echo "=== SUMMARY: Purged $ORPHAN_COUNT orphans, reclaimed $HUMAN_ORPHAN_SIZE ==="
+fi
+if [ "$ORPHAN_COUNT" -gt 0 ]; then
+    echo "    - Matched Ratio limit (>= $MIN_RATIO): $MATCHED_RATIO_COUNT"
+    echo "    - Matched Time limit (>= ${MIN_SEEDING_DAYS}d): $MATCHED_AGE_COUNT"
+    if [ "$MATCHED_BOTH_COUNT" -gt 0 ]; then
+        echo "    - Matched Both limits: $MATCHED_BOTH_COUNT"
+    fi
 fi

@@ -95,9 +95,8 @@ for folder in "${TARGET_FOLDERS[@]}"; do
 
         TORRENT_ROW=""
         while read -r raw_row; do
-            ROW_CLEAN=$(echo "$raw_row" | sed 's/ \+/ /g' | sed 's/^ //')
-            LINE_NAME=$(echo "$ROW_CLEAN" | awk '{out=""; for(i=10;i<=NF;i++){out=out $i " "}; sub(/ $/,"",out); print out}')
-            if [ "$LINE_NAME" = "$ITEM_NAME" ]; then
+            ROW_CLEAN=$(echo "$raw_row" | awk '{$1=$1};1')
+            if [[ "$ROW_CLEAN" == *" $ITEM_NAME" ]]; then
                 TORRENT_ROW="$ROW_CLEAN"
                 break
             fi
@@ -106,17 +105,25 @@ for folder in "${TARGET_FOLDERS[@]}"; do
         if [ -n "$TORRENT_ROW" ]; then
             TORRENT_ID=$(echo "$TORRENT_ROW" | cut -d' ' -f1 | tr -d '*')
 
-            # FIXED: Added the proper block delimiters to the reverse row search pattern
-            CURRENT_RATIO=$(echo "$TORRENT_ROW" | awk '{
+            # ROBUST RATIO EXTRACTION: Strip the literal name off the row first, then scan backwards.
+            # This completely guarantees we don't accidentally parse a ratio-like number inside the torrent's name.
+            ROW_NO_NAME=${TORRENT_ROW% $ITEM_NAME}
+            CURRENT_RATIO=$(echo "$ROW_NO_NAME" | awk '{
+                found=0;
                 for(i=NF; i>1; i--) {
                     if($i ~ /^[0-9]+\.[0-9]+$/ || $i == "None") {
                         print $i;
+                        found=1;
                         exit
                     }
                 }
-            } END { print "0.0" }')
+            } END { if(!found) print "0.00" }')
 
-            if [[ "$CURRENT_RATIO" == "None" ]] || [[ ! "$CURRENT_RATIO" =~ ^[0-9.]+$ ]]; then CURRENT_RATIO="0.0"; fi
+            if [[ "$CURRENT_RATIO" == "None" ]] || [[ ! "$CURRENT_RATIO" =~ ^[0-9.]+$ ]]; then
+                CURRENT_RATIO="0.00"
+            else
+                CURRENT_RATIO=$(printf "%.2f" "$CURRENT_RATIO")
+            fi
 
             ITEM_EPOCH=$(stat -c '%Y' "$item_path")
             NOW_EPOCH=$(date +%s)

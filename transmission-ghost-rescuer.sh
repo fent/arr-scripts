@@ -46,6 +46,11 @@ SOURCE_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
 
+# Table Formatting
+COL_NAME=105
+COL_SIZE=10
+COL_TOTAL=$((COL_NAME + COL_SIZE + 3))
+
 echo "=== STARTING TRANSMISSION GHOST-LINK RESCUER ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
@@ -86,6 +91,8 @@ while IFS= read -r info_line; do
     fi
 done <<< "$ALL_TORRENT_DETAILS"
 echo "Index built (${#LIVE_NAME_MAP[@]} torrents cached)."
+echo "Scanning disk shares: ${SOURCE_FOLDERS[*]}..."
+echo "----------------------------------------"
 
 TOTAL_RESCUED_COUNT=0
 TOTAL_RESCUED_SIZE_KBYTES=0
@@ -95,6 +102,7 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
     if [ ! -d "$CURRENT_SRC_DIR" ]; then continue; fi
 
     echo "Auditing folder for link-connected ghosts: $CURRENT_SRC_DIR"
+    HEADER_PRINTED=false
 
     # Scan everything at depth 1 (files and folders)
     while read -r -d $'\0' item_path; do
@@ -138,22 +146,35 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
             item_size_kb=$(du -s "$item_path" | awk '{print $1}')
             TOTAL_RESCUED_SIZE_KBYTES=$((TOTAL_RESCUED_SIZE_KBYTES + item_size_kb))
             TOTAL_RESCUED_COUNT=$((TOTAL_RESCUED_COUNT + 1))
-
             HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
 
-            if [ "$DRY_RUN" = true ]; then
-                echo "[DRY-RUN] Rescue candidate ($HUMAN_SIZE): $ITEM_NAME"
-                echo "    -> Already hard-linked to library; safe to re-add to Transmission."
-            else
-                echo "[ACTION] Re-injecting to Transmission ($HUMAN_SIZE): $ITEM_NAME"
+            if [ "$HEADER_PRINTED" = false ]; then
+                printf "%-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size"
+                printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+                HEADER_PRINTED=true
+            fi
+
+            disp_name="$ITEM_NAME"
+            if [ ${#disp_name} -gt $COL_NAME ]; then
+                trunc_len=$((COL_NAME - 3))
+                disp_name="${disp_name:0:$trunc_len}..."
+            fi
+
+            printf "%-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE"
+
+            if [ "$DRY_RUN" = false ]; then
                 # NOTE: To perform automatic injection, the original .torrent file or magnet link
                 # is needed. For now, this step alerts you with the exact path so it can be re-added safely.
                 # If your torrent backup folder is known, we can automate the exact trigger line here.
+                true
             fi
-            echo "----------------------------------------"
         fi
 
     done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
+
+    if [ "$HEADER_PRINTED" = true ]; then
+        printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+    fi
 done
 
 HUMAN_TOTAL_SIZE=$(awk -v kb="$TOTAL_RESCUED_SIZE_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')

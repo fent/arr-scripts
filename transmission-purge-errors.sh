@@ -37,6 +37,12 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # Target subdirectories to audit (Excluding .music)
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
+# Table Formatting
+COL_NAME=80
+COL_ID=5
+COL_ERROR=30
+COL_TOTAL=$((COL_NAME + COL_ID + COL_ERROR + 6))
+
 echo "=== STARTING TRACKER ERROR PURGE ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "Scanning every torrent ID in the database (this will take a while)..."
@@ -66,6 +72,7 @@ ALL_IDS=$(echo "$RAW_MANIFEST" | tail -n +2 | head -n -1 | awk '{print $1}' | tr
 # Clean, in-memory trackers
 TOTAL_TRACKER_ERR_KBYTES=0
 TRACKER_ERR_COUNT=0
+HEADER_PRINTED=false
 
 # -----------------------------------------------------------------
 # CORE ENGINE: STEP DEEP SEQUENTIALLY THROUGH EVERY TORRENT ID
@@ -77,7 +84,7 @@ for tid in $ALL_IDS; do
         TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
-        TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found")
+        TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
         if [ -n "$TRACKER_ERROR_MSG" ]; then
             # Extract internal container tracking paths
@@ -104,22 +111,37 @@ for tid in $ALL_IDS; do
                 TOTAL_TRACKER_ERR_KBYTES=$((TOTAL_TRACKER_ERR_KBYTES + ITEM_KBYTES))
                 TRACKER_ERR_COUNT=$((TRACKER_ERR_COUNT + 1))
 
-                ITEM_HUMAN_SIZE=$(du -sh "$ITEM_PATH" | awk '{print $1}')
+                if [ "$HEADER_PRINTED" = false ]; then
+                    printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_ID" "ID" "$COL_ERROR" "Tracker Error"
+                    printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+                    HEADER_PRINTED=true
+                fi
 
-                if [ "$DRY_RUN" = true ]; then
-                    echo "[DRY-RUN] Found unregistered tracker error ($ITEM_HUMAN_SIZE): $TORRENT_NAME (ID: $tid)"
-                    echo "    * Log details: $TRACKER_ERROR_MSG"
-                    echo "----------------------------------------"
-                else
-                    echo "[ACTION] Purging tracker error ($ITEM_HUMAN_SIZE): $TORRENT_NAME"
-                    echo "    * Log details: $TRACKER_ERROR_MSG"
+                disp_name="$TORRENT_NAME"
+                if [ ${#disp_name} -gt $COL_NAME ]; then
+                    trunc_len=$((COL_NAME - 3))
+                    disp_name="${disp_name:0:$trunc_len}..."
+                fi
+
+                disp_err="$TRACKER_ERROR_MSG"
+                if [ ${#disp_err} -gt $COL_ERROR ]; then
+                    trunc_err=$((COL_ERROR - 3))
+                    disp_err="${disp_err:0:$trunc_err}..."
+                fi
+
+                printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_ID" "$tid" "$COL_ERROR" "$disp_err"
+
+                if [ "$DRY_RUN" = false ]; then
                     docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove-and-delete > /dev/null
-                    echo "----------------------------------------"
                 fi
             fi
         fi
     fi
 done
+
+if [ "$HEADER_PRINTED" = true ]; then
+    printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+fi
 
 # Convert exact summaries to clean, human-readable strings
 HUMAN_ERROR_SIZE=$(awk -v kb="$TOTAL_TRACKER_ERR_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')

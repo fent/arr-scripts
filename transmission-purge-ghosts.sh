@@ -38,6 +38,11 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # Target subdirectories to audit (Excluding .music)
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
+# Table Formatting
+COL_NAME=105
+COL_SIZE=10
+COL_TOTAL=$((COL_NAME + COL_SIZE + 3))
+
 echo "=== STARTING GHOST DATA PURGER ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
@@ -80,7 +85,7 @@ while IFS= read -r info_line; do
 done <<< "$ALL_TORRENT_DETAILS"
 
 echo "Database mapping complete (${#LIVE_FILENAME_MAP[@]} physical root assets cached)."
-echo "Scanning physical disks..."
+echo "Scanning disk shares: ${TARGET_FOLDERS[*]}..."
 echo "----------------------------------------"
 
 TOTAL_UNREFERENCED_KBYTES=0
@@ -89,7 +94,9 @@ UNREF_COUNT=0
 for folder in "${TARGET_FOLDERS[@]}"; do
     CURRENT_DIR="${BASE_PATH}/${folder}"
     if [ ! -d "$CURRENT_DIR" ]; then continue; fi
+
     echo "Scanning disk share: $CURRENT_DIR"
+    HEADER_PRINTED=false
 
     while read -r -d $'\0' item_path; do
         ITEM_NAME=$(basename "$item_path")
@@ -106,14 +113,29 @@ for folder in "${TARGET_FOLDERS[@]}"; do
             UNREF_COUNT=$((UNREF_COUNT + 1))
             ITEM_HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
 
-            if [ "$DRY_RUN" = true ]; then
-                echo "[DRY-RUN] Would delete ghost data ($ITEM_HUMAN_SIZE): $ITEM_NAME"
-            else
-                echo "[ACTION] Deleting ghost data ($ITEM_HUMAN_SIZE): $ITEM_NAME"
+            if [ "$HEADER_PRINTED" = false ]; then
+                printf "%-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size"
+                printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+                HEADER_PRINTED=true
+            fi
+
+            disp_name="$ITEM_NAME"
+            if [ ${#disp_name} -gt $COL_NAME ]; then
+                trunc_len=$((COL_NAME - 3))
+                disp_name="${disp_name:0:$trunc_len}..."
+            fi
+
+            printf "%-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE"
+
+            if [ "$DRY_RUN" = false ]; then
                 rm -rf "$item_path"
             fi
         fi
     done < <(find "$CURRENT_DIR" -maxdepth 1 -mindepth 1 -print0)
+
+    if [ "$HEADER_PRINTED" = true ]; then
+        printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+    fi
 done
 
 HUMAN_UNREF_SIZE=$(awk -v kb="$TOTAL_UNREFERENCED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')

@@ -40,6 +40,13 @@ TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 MIN_SEEDING_DAYS=30
 MIN_RATIO="2.0"
 
+# Table Formatting
+COL_NAME=85
+COL_SIZE=10
+COL_RATIO=8
+COL_AGE=8
+COL_TOTAL=$((COL_NAME + COL_SIZE + COL_RATIO + COL_AGE + 9)) # 9 chars for separators
+
 echo "=== STARTING SEEDING ORPHANS CLEANUP ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
@@ -56,11 +63,12 @@ fi
 RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 TOTAL_ORPHAN_KBYTES=0
 ORPHAN_COUNT=0
-
 for folder in "${TARGET_FOLDERS[@]}"; do
     CURRENT_DIR="${BASE_PATH}/${folder}"
     if [ ! -d "$CURRENT_DIR" ]; then continue; fi
+
     echo "Scanning disk share: $CURRENT_DIR"
+    HEADER_PRINTED=false
 
     while read -r -d $'\0' item_path; do
         ITEM_NAME=$(basename "$item_path")
@@ -118,17 +126,36 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                 ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
                 ITEM_HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
 
-                if [ "$DRY_RUN" = true ]; then
-                    echo "[DRY-RUN] Would purge orphan ($ITEM_HUMAN_SIZE): $ITEM_NAME (ID: $TORRENT_ID) | Ratio: $CURRENT_RATIO | Age: $DAYS_SEEDING days"
-                else
-                    echo "[ACTION] Purging orphan ($ITEM_HUMAN_SIZE): $ITEM_NAME"
+                if [ "$HEADER_PRINTED" = false ]; then
+                    printf "%-*s | %-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" "$COL_RATIO" "Ratio" "$COL_AGE" "Age"
+                    printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+                    HEADER_PRINTED=true
+                fi
+
+                disp_name="$ITEM_NAME"
+                if [ ${#disp_name} -gt $COL_NAME ]; then
+                    trunc_len=$((COL_NAME - 3))
+                    disp_name="${disp_name:0:$trunc_len}..."
+                fi
+
+                printf "%-*s | %-*s | %-*s | %-*s\n" "$COL_NAME" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d"
+
+                if [ "$DRY_RUN" = false ]; then
                     docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove-and-delete > /dev/null
                 fi
             fi
         fi
     done < <(find "$CURRENT_DIR" -maxdepth 1 -mindepth 1 -print0)
+
+    if [ "$HEADER_PRINTED" = true ]; then
+        printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
+    fi
 done
 
 HUMAN_ORPHAN_SIZE=$(awk -v kb="$TOTAL_ORPHAN_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
-echo "----------------------------------------"
-echo "=== SUMMARY: Seeding Orphans Reclaimable: $HUMAN_ORPHAN_SIZE ($ORPHAN_COUNT torrents affected) ==="
+
+if [ "$DRY_RUN" = true ]; then
+    echo "=== SUMMARY: [DRY-RUN] $ORPHAN_COUNT orphans found, would reclaim $HUMAN_ORPHAN_SIZE ==="
+else
+    echo "=== SUMMARY: Purged $ORPHAN_COUNT orphans, reclaimed $HUMAN_ORPHAN_SIZE ==="
+fi

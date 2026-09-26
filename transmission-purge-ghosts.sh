@@ -57,7 +57,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 echo "Pulling deep metadata sheets for all active torrents..."
-ALL_TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>&1)
+ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>&1)
 
 if echo "$ALL_TORRENT_DETAILS" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."

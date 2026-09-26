@@ -77,7 +77,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 echo "Caching entire torrent manifest from Transmission..."
-RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
+RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."

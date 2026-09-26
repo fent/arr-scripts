@@ -59,7 +59,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
 fi
 
 echo "Caching entire torrent manifest from Transmission..."
-RAW_MANIFEST=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
+RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."
@@ -81,7 +81,7 @@ for tid in $ALL_IDS; do
     if [[ "$tid" =~ ^[0-9]+$ ]]; then
 
         # Query the explicit, untruncated internal metadata block for this database index
-        TORRENT_DETAILS=$(docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null)
+        TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null < /dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
         TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
@@ -142,7 +142,7 @@ for tid in $ALL_IDS; do
                 printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_ID" "$tid" "$err_width" "$disp_err"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec -i "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove-and-delete > /dev/null
+                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove-and-delete > /dev/null < /dev/null
                 fi
             fi
         fi

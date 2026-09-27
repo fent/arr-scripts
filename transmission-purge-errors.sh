@@ -158,4 +158,20 @@ fi
 HUMAN_ERROR_SIZE=$(awk -v kb="$TOTAL_TRACKER_ERR_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
 echo "----------------------------------------"
-echo "=== SUMMARY: Dead Tracker Error Torrents Reclaimable: $HUMAN_ERROR_SIZE ($TRACKER_ERR_COUNT torrents affected) ==="
+if [ "$DRY_RUN" = true ]; then
+    echo "=== SUMMARY: [DRY-RUN] $TRACKER_ERR_COUNT broken torrents found, would reclaim $HUMAN_ERROR_SIZE ==="
+else
+    echo "=== SUMMARY: Purged $TRACKER_ERR_COUNT broken torrents, reclaimed $HUMAN_ERROR_SIZE ==="
+fi
+
+if [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
+    # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
+    # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+        if [ "$DRY_RUN" = true ]; then
+            /usr/local/emhttp/webGui/scripts/notify -i warning -s "Transmission Errors (DRY RUN)" -d "Found $TRACKER_ERR_COUNT broken torrents. Would reclaim $HUMAN_ERROR_SIZE."
+        else
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Errors Purged" -d "Successfully purged $TRACKER_ERR_COUNT broken torrents and reclaimed $HUMAN_ERROR_SIZE."
+        fi
+    fi
+fi

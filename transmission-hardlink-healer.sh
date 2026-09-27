@@ -255,3 +255,15 @@ else
     echo "=== SUMMARY: Successfully re-linked $TOTAL_LINKS_HEALED files, reclaiming: $HUMAN_SAVED_SIZE ==="
 fi
 echo "========================================"
+
+if [ "$TOTAL_LINKS_HEALED" -gt 0 ]; then
+    # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
+    # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+        if [ "$DRY_RUN" = true ]; then
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed (DRY RUN)" -d "Found $TOTAL_LINKS_HEALED unlinked files. Would reclaim $HUMAN_SAVED_SIZE."
+        else
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed" -d "Successfully re-linked $TOTAL_LINKS_HEALED duplicates and reclaimed $HUMAN_SAVED_SIZE."
+        fi
+    fi
+fi

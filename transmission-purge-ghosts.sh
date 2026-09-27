@@ -151,4 +151,20 @@ done
 
 HUMAN_UNREF_SIZE=$(awk -v kb="$TOTAL_UNREFERENCED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 echo "----------------------------------------"
-echo "=== SUMMARY: Dead Unreferenced Items Reclaimable: $HUMAN_UNREF_SIZE ($UNREF_COUNT items affected) ==="
+if [ "$DRY_RUN" = true ]; then
+    echo "=== SUMMARY: [DRY-RUN] $UNREF_COUNT ghost folders found, would reclaim $HUMAN_UNREF_SIZE ==="
+else
+    echo "=== SUMMARY: Purged $UNREF_COUNT ghost folders, reclaimed $HUMAN_UNREF_SIZE ==="
+fi
+
+if [ "$UNREF_COUNT" -gt 0 ]; then
+    # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
+    # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+        if [ "$DRY_RUN" = true ]; then
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts (DRY RUN)" -d "Found $UNREF_COUNT ghost folders. Would reclaim $HUMAN_UNREF_SIZE."
+        else
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts Purged" -d "Successfully purged $UNREF_COUNT ghost folders and reclaimed $HUMAN_UNREF_SIZE."
+        fi
+    fi
+fi

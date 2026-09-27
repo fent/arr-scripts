@@ -137,7 +137,12 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
     TOTAL_ITEMS=$(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 | wc -l)
     CURRENT_INDEX=0
 
-    while read -r -d $'\0' item_path; do
+    ITEM_PATHS=()
+    while read -r -d $'\0' p; do
+        ITEM_PATHS+=("$p")
+    done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
+
+    for item_path in "${ITEM_PATHS[@]}"; do
         ITEM_NAME=$(basename "$item_path")
         CURRENT_INDEX=$((CURRENT_INDEX + 1))
         TOTAL_ITEMS_SCANNED=$((TOTAL_ITEMS_SCANNED + 1))
@@ -161,7 +166,13 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
             continue
         fi
 
-        while read -r -d $'\0' src_file; do
+        # Pre-cache inner files to avoid index shift on inner find loop
+        INNER_PATHS=()
+        while read -r -d $'\0' p; do
+            INNER_PATHS+=("$p")
+        done < <(find "$item_path" -type f -print0 2> /dev/null)
+
+        for src_file in "${INNER_PATHS[@]}"; do
             FILENAME=$(basename "$src_file")
 
             if echo "$FILENAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
@@ -229,8 +240,8 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                 fi
             fi
 
-        done < <(find "$item_path" -type f -print0 2> /dev/null)
-    done < <(find "$CURRENT_SRC_DIR" -maxdepth 1 -mindepth 1 -print0)
+        done
+    done
 done
 
 HUMAN_SAVED_SIZE=$(awk -v kb="$TOTAL_SPACE_SAVED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')

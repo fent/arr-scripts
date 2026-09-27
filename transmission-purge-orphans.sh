@@ -74,7 +74,13 @@ for folder in "${TARGET_FOLDERS[@]}"; do
     echo "Scanning disk share: $CURRENT_DIR"
     HEADER_PRINTED=false
 
-    while read -r -d $'\0' item_path; do
+    # Pre-cache directory contents to prevent index shifting when items are deleted
+    ITEM_PATHS=()
+    while read -r -d $'\0' p; do
+        ITEM_PATHS+=("$p")
+    done < <(find "$CURRENT_DIR" -maxdepth 1 -mindepth 1 -print0)
+
+    for item_path in "${ITEM_PATHS[@]}"; do
         ITEM_NAME=$(basename "$item_path")
         still_linked=false
 
@@ -171,7 +177,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                 fi
             fi
         fi
-    done < <(find "$CURRENT_DIR" -maxdepth 1 -mindepth 1 -print0)
+    done
 
     if [ "$HEADER_PRINTED" = true ]; then
         printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'

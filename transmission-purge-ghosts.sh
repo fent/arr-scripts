@@ -1,11 +1,12 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: UNREFERENCED GHOST FILE PURGE (CASE B) - LITERAL FILENAME MATCH
+# SCRIPT DESCRIPTION: UNREFERENCED GHOST FILE PURGE
 # ==============================================================================
 # PURPOSE:
 # This script identifies and deletes unreferenced "ghost" files and folders
-# that are taking up space on your hard drives but do not exist in Transmission.
+# that are taking up space on your hard drives but do not exist in Transmission
+# nor are hardlinked to your media folders.
 #
 # HOW IT WORKS:
 # 1. It pulls Transmission's complete database metadata block using '-t all --info'.
@@ -82,7 +83,7 @@ while IFS= read -r info_line; do
             LIVE_FILENAME_MAP["$disk_name"]=1
         fi
     fi
-done <<< "$ALL_TORRENT_DETAILS"
+done <<<"$ALL_TORRENT_DETAILS"
 
 echo "Database mapping complete (${#LIVE_FILENAME_MAP[@]} physical root assets cached)."
 echo "Scanning disk shares: ${TARGET_FOLDERS[*]}..."

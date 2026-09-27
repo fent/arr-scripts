@@ -6,7 +6,7 @@
 # PURPOSE:
 #   Identifies download folder items that have disappeared from Transmission's
 #   session (e.g. after a Transmission database reset or container recreate)
-#   but whose files are still on disk AND still hard-linked to the Plex library.
+#   but whose files are still on disk AND still hard-linked to the media library.
 #   These "ghost" items are safe to re-add to Transmission for continued seeding
 #   because their data is intact and their library link is already in place.
 #
@@ -17,7 +17,7 @@
 #   2. Walks each configured download folder and flags items NOT found in the
 #      hashmap (i.e. missing from Transmission's session).
 #   3. For each missing item, checks whether it still has a hard link to the
-#      Plex library (link count > 1). Only linked items are flagged as rescue
+#      media library (link count > 1). Only linked items are flagged as rescue
 #      candidates — unlinked items are left for the orphan or ghost purgers.
 #   4. Reports all rescue candidates so they can be re-added to Transmission.
 #
@@ -79,7 +79,7 @@ fi
 # on Linux, os_specific=false so Win32 reserved chars (", *, :, <, >, ?, \, |) -> '_'.
 # This makes the hashmap key match the literal folder/file name written to disk.
 echo "Building sanitized torrent name index..."
-ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2> /dev/null)
+ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>/dev/null)
 declare -A LIVE_NAME_MAP
 while IFS= read -r info_line; do
     if [[ "$info_line" =~ ^[[:space:]]+Name:[[:space:]]+(.+)$ ]]; then
@@ -89,7 +89,7 @@ while IFS= read -r info_line; do
             LIVE_NAME_MAP["$disk_name"]=1
         fi
     fi
-done <<< "$ALL_TORRENT_DETAILS"
+done <<<"$ALL_TORRENT_DETAILS"
 echo "Index built (${#LIVE_NAME_MAP[@]} torrents cached)."
 echo "Scanning disk shares: ${SOURCE_FOLDERS[*]}..."
 echo "----------------------------------------"
@@ -114,21 +114,21 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
         fi
 
         # We found a true Ghost Item (On disk, but missing from Transmission)
-        # Now verify if it has a hard link in the Plex library (Link Count >= 2)
+        # Now verify if it has a hard link in the media library (Link Count >= 2)
         is_linked_ghost=false
         item_size_kb=0
 
         if [ -d "$item_path" ]; then
             # If it's a folder, look inside for a media file that has links
             while read -r -d $'\0' media_file; do
-                if echo "$(basename "$media_file")" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
+                if basename "$media_file" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then
                     link_count=$(stat -c '%h' "$media_file")
                     if [ "$link_count" -gt 1 ]; then
                         is_linked_ghost=true
                         break
                     fi
                 fi
-            done < <(find "$item_path" -type f -print0 2> /dev/null)
+            done < <(find "$item_path" -type f -print0 2>/dev/null)
         else
             # If it's a single file, check its link count directly
             if echo "$ITEM_NAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: DEAD TRACKER ERROR TORRENTS PURGER (CASE C) - ITERATIVE ID EDITION
+# SCRIPT DESCRIPTION: DEAD TRACKER ERROR TORRENTS PURGER
 # ==============================================================================
 # PURPOSE:
-# This script scans Transmission for broken, dead, or completely unregistered
+# This script scans Transmission for broken, dead, or unregistered
 # torrent entries by systematically looping through every active Torrent ID in
 # your container's database.
 #
@@ -81,7 +81,7 @@ for tid in $ALL_IDS; do
     if [[ "$tid" =~ ^[0-9]+$ ]]; then
 
         # Query the explicit, untruncated internal metadata block for this database index
-        TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null < /dev/null)
+        TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2>/dev/null </dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
         TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
@@ -142,7 +142,7 @@ for tid in $ALL_IDS; do
                 printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_ID" "$tid" "$err_width" "$disp_err"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
+                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove >/dev/null </dev/null
                     rm -rf "$ITEM_PATH"
                 fi
             fi

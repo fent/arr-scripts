@@ -6,7 +6,7 @@
 # PURPOSE:
 #   Reclaims wasted disk space caused by Sonarr/Radarr being misconfigured to
 #   copy files on import instead of creating hard links. When this happens, both
-#   the seeding download folder and the Plex library folder contain a full
+#   the seeding download folder and the media library folder contain a full
 #   independent copy of the same file, doubling the space used. This script
 #   finds those duplicate pairs and collapses them into a single hard link,
 #   so both paths point to the same inode and only one copy occupies disk space.
@@ -89,7 +89,7 @@ touch "$VERIFIED_CACHE"
 declare -A PROCESSED_INODES
 while read -r line; do
     if [ -n "$line" ]; then PROCESSED_INODES[$line]=1; fi
-done < "$VERIFIED_CACHE"
+done <"$VERIFIED_CACHE"
 
 # -----------------------------------------------------------------
 # OPTIMIZATION: DE-DUPLICATED LIBRARY HASHMAP INDEXING
@@ -111,14 +111,14 @@ for target_lib in "${!UNIQUED_LIBS[@]}"; do
     echo "  * Indexing unique path: $target_lib"
     while read -r -d $'\0' file_path; do
         size=$(stat -c '%s' "$file_path")
-        IFS='|' read -r -a matched_sources <<< "${UNIQUED_LIBS["$target_lib"]}"
+        IFS='|' read -r -a matched_sources <<<"${UNIQUED_LIBS["$target_lib"]}"
         for src_folder in "${matched_sources[@]}"; do
             if [ -n "$src_folder" ]; then
                 map_key="${src_folder}_${size}"
                 LIB_HASH_MAPS["$map_key"]="${LIB_HASH_MAPS["$map_key"]}${file_path}|"
             fi
         done
-    done < <(find "$target_lib" -type f -print0 2> /dev/null)
+    done < <(find "$target_lib" -type f -print0 2>/dev/null)
 done
 
 echo "Library mapping complete. Starting clean source scanning loop..."
@@ -170,7 +170,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
         INNER_PATHS=()
         while read -r -d $'\0' p; do
             INNER_PATHS+=("$p")
-        done < <(find "$item_path" -type f -print0 2> /dev/null)
+        done < <(find "$item_path" -type f -print0 2>/dev/null)
 
         for src_file in "${INNER_PATHS[@]}"; do
             FILENAME=$(basename "$src_file")
@@ -181,7 +181,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
 
                 if [ "$link_count" -gt 1 ]; then
                     if [ -z "${PROCESSED_INODES[$SRC_INODE]}" ]; then
-                        echo "$SRC_INODE" >> "$VERIFIED_CACHE"
+                        echo "$SRC_INODE" >>"$VERIFIED_CACHE"
                         PROCESSED_INODES[$SRC_INODE]=1
                     fi
                     continue
@@ -198,7 +198,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                 MATCH_STRING="${LIB_HASH_MAPS["$map_key"]}"
 
                 if [ -n "$MATCH_STRING" ]; then
-                    IFS='|' read -r -a potential_matches <<< "$MATCH_STRING"
+                    IFS='|' read -r -a potential_matches <<<"$MATCH_STRING"
                     for lib_file in "${potential_matches[@]}"; do
                         if [ -z "$lib_file" ] || [ ! -f "$lib_file" ]; then continue; fi
 
@@ -229,7 +229,7 @@ for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
                         rm -f "$src_file"
                         if ln "$MATCHING_LIB_FILE" "$src_file"; then
                             NEW_INODE=$(stat -c '%i' "$src_file")
-                            echo "$NEW_INODE" >> "$VERIFIED_CACHE"
+                            echo "$NEW_INODE" >>"$VERIFIED_CACHE"
                             PROCESSED_INODES[$NEW_INODE]=1
                         else
                             echo "ERROR: Link creation failed for $src_file"

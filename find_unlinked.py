@@ -17,13 +17,13 @@
 #
 # USAGE:
 #   python3 find_unlinked.py \
-#       -d /mnt/user/downloads/.tv \
-#       -m /mnt/user/media/TV/MyShow \
+#       -d /mnt/user/data/downloads/tv \
+#       -m /mnt/user/data/media/tv/MyShow \
 #       -s "MyShow" "My.Show"
 #
 # USE CASE:
 #   Identify which specific episodes in your download folders are missing from
-#   the Plex library so they can be re-imported or investigated.
+#   the media library so they can be re-imported or investigated.
 # ==============================================================================
 
 import argparse

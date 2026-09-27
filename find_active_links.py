@@ -15,12 +15,12 @@
 #   3. Prints a per-file [STILL LINKED] or [NOT LINKED] result and a summary.
 #
 # USAGE:
-#   python3 find_active_links.py -m /mnt/user/media/TV/MyShow \
-#       -f /mnt/user/downloads/.tv/MyShow.S01 /mnt/user/downloads/.tv/MyShow.S02
+#   python3 find_active_links.py -m /mnt/user/data/media/tv/MyShow \
+#       -f /mnt/user/data/downloads/tv/MyShow.S01 /mnt/user/data/downloads/tv/MyShow.S02
 #
 # USE CASE:
 #   Quickly verify whether a particular set of download folders are still
-#   referenced by your Plex/Arr library before freeing disk space.
+#   referenced by your media library before freeing disk space.
 # ==============================================================================
 
 import argparse

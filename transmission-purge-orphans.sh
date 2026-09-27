@@ -1,17 +1,17 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: TRANSMISSION SEEDING ORPHANS PURGER (CASE A)
+# SCRIPT DESCRIPTION: TRANSMISSION SEEDING ORPHANS PURGER
 # ==============================================================================
 # PURPOSE:
 # This script identifies and removes active torrents that are currently seeding
-# inside Transmission but have been upgraded or deleted from your Plex library.
+# inside Transmission but have been upgraded or deleted from your media library.
 #
 # HOW IT WORKS:
 # 1. It scans your media download directories (.tv, .movies, etc.) on disk.
 # 2. It checks the Linux "Hard Link Count" for every media file found.
 # 3. If a file has a Link Count of EXACTLY 1, it means the sorted companion file
-#    inside your Plex library no longer exists (e.g., Sonarr/Radarr replaced it).
+#    inside your media library no longer exists (e.g., Sonarr/Radarr replaced it).
 # 4. It cross-references that orphan file against Transmission's live manifest.
 # 5. If the torrent meets EITHER of your safety thresholds (seeding for >= 30 days
 #    OR has reached a >= 2.0 ratio), it tells Transmission to safely purge the
@@ -90,7 +90,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                     still_linked=true
                     break
                 fi
-            done < <(find "$item_path" -type f -print0 2> /dev/null)
+            done < <(find "$item_path" -type f -print0 2>/dev/null)
         else
             if [ "$(stat -c '%h' "$item_path")" -gt 1 ]; then
                 still_linked=true
@@ -113,7 +113,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
 
             # ROBUST RATIO EXTRACTION: Strip the literal name off the row first, then scan backwards.
             # This completely guarantees we don't accidentally parse a ratio-like number inside the torrent's name.
-            ROW_NO_NAME=${TORRENT_ROW% $ITEM_NAME}
+            ROW_NO_NAME=${TORRENT_ROW% "$ITEM_NAME"}
             CURRENT_RATIO=$(echo "$ROW_NO_NAME" | awk '{
                 found=0;
                 for(i=NF; i>1; i--) {
@@ -172,7 +172,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                 printf "%-*s | %-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove > /dev/null < /dev/null
+                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove >/dev/null </dev/null
                     rm -rf "$item_path"
                 fi
             fi

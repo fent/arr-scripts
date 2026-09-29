@@ -26,6 +26,16 @@
 MEDIA_DIR=""
 FOLDERS=()
 
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
+
 while [[ "$#" -gt 0 ]]; do
     case $1 in
     -m | --media)
@@ -140,7 +150,9 @@ for folder in "${FOLDERS[@]}"; do
 
     echo ""
     echo "Summary for '$(basename "$folder_path")':"
-    echo "  - Active links in media: $linked_count"
-    echo "  - Unlinked / abandoned : $unlinked_count"
+    format_num "$linked_count" linked_count_FMT
+    echo "  - Active links in media: $linked_count_FMT"
+    format_num "$unlinked_count" unlinked_count_FMT
+    echo "  - Unlinked / abandoned : $unlinked_count_FMT"
     echo ""
 done

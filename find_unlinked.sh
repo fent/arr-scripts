@@ -30,6 +30,16 @@ DOWNLOADS_DIR=""
 MEDIA_DIR=""
 SEARCH_TERMS=()
 
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
+
 while [[ "$#" -gt 0 ]]; do
     case $1 in
     -d | --downloads)
@@ -118,7 +128,9 @@ while IFS= read -r -d $'\0' f; do
     fi
 done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
 
-echo "  Found ${#IMPORTED_INODES[@]} existing video files in this series."
+IMPORTED_COUNT=${#IMPORTED_INODES[@]}
+    format_num "$IMPORTED_COUNT" IMPORTED_COUNT_FMT
+    echo "  Found $IMPORTED_COUNT_FMT existing video files in this series."
 echo ""
 
 # 3. Only scan matched download folders
@@ -140,15 +152,18 @@ for dl_dir in "${MATCHED_DIRS[@]}"; do
     done < <(find "$dl_dir" -type f -print0 2>/dev/null)
 done
 
-echo "Scanned $scanned_count files across matched download folders."
+format_num "$scanned_count" scanned_count_FMT
+echo "Scanned $scanned_count_FMT files across matched download folders."
 echo ""
 
-if [ ${#UNLINKED[@]} -eq 0 ]; then
+if [ $UNLINKED_COUNT -eq 0 ]; then
     echo "Everything in the matched download folders is already hardlinked to the series folder."
     exit 0
 fi
 
-echo "=== Found ${#UNLINKED[@]} Unlinked Video File(s) ==="
+UNLINKED_COUNT=${#UNLINKED[@]}
+format_num "$UNLINKED_COUNT" UNLINKED_COUNT_FMT
+echo "=== Found $UNLINKED_COUNT_FMT Unlinked Video File(s) ==="
 for f in "${UNLINKED[@]}"; do
     size_bytes=$(stat -c '%s' "$f" 2>/dev/null || echo 0)
     size_gb=$(awk -v b="$size_bytes" 'BEGIN { printf "%.2f", b / (1024^3) }')

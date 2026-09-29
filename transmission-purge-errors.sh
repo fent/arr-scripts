@@ -43,6 +43,16 @@ COL_ID=5
 COL_ERROR=30
 COL_TOTAL=$((COL_NAME + COL_ID + COL_ERROR + 6))
 
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
+
 echo "=== STARTING TRACKER ERROR PURGE ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "Scanning every torrent ID in the database (this will take a while)..."
@@ -159,9 +169,11 @@ HUMAN_ERROR_SIZE=$(awk -v kb="$TOTAL_TRACKER_ERR_KBYTES" 'BEGIN {printf (kb>=104
 
 echo "----------------------------------------"
 if [ "$DRY_RUN" = true ]; then
-    echo "=== SUMMARY: [DRY-RUN] $TRACKER_ERR_COUNT broken torrents found, would reclaim $HUMAN_ERROR_SIZE ==="
+    format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
+    echo "=== SUMMARY: [DRY-RUN] $TRACKER_ERR_COUNT_FMT broken torrents found, would reclaim $HUMAN_ERROR_SIZE ==="
 else
-    echo "=== SUMMARY: Purged $TRACKER_ERR_COUNT broken torrents, reclaimed $HUMAN_ERROR_SIZE ==="
+    format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
+    echo "=== SUMMARY: Purged $TRACKER_ERR_COUNT_FMT broken torrents, reclaimed $HUMAN_ERROR_SIZE ==="
 fi
 
 if [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
@@ -169,9 +181,11 @@ if [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
     if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
         if [ "$DRY_RUN" = true ]; then
-            /usr/local/emhttp/webGui/scripts/notify -i warning -s "Transmission Errors (DRY RUN)" -d "Found $TRACKER_ERR_COUNT broken torrents. Would reclaim $HUMAN_ERROR_SIZE."
+            format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i warning -s "Transmission Errors (DRY RUN)" -d "Found $TRACKER_ERR_COUNT_FMT broken torrents. Would reclaim $HUMAN_ERROR_SIZE."
         else
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Errors Purged" -d "Successfully purged $TRACKER_ERR_COUNT broken torrents and reclaimed $HUMAN_ERROR_SIZE."
+            format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Errors Purged" -d "Successfully purged $TRACKER_ERR_COUNT_FMT broken torrents and reclaimed $HUMAN_ERROR_SIZE."
         fi
     fi
 fi

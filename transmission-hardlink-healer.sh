@@ -46,6 +46,17 @@ TR_PASS="YOUR_PASSWORD_HERE" # <--- CHANGE THIS
 # 1:1 FOLDER MAPPINGS (Configure your matching pairs here)
 # Format: ["SOURCE_SEED_FOLDER"]="DESTINATION_LIBRARY_PATH"
 # -----------------------------------------------------------------
+
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
+
 declare -A FOLDER_MAP
 FOLDER_MAP[".tv"]="${BASE_PATH}/TV"
 FOLDER_MAP[".tv-imported"]="${BASE_PATH}/TV"
@@ -248,11 +259,14 @@ HUMAN_SAVED_SIZE=$(awk -v kb="$TOTAL_SPACE_SAVED_KBYTES" 'BEGIN {printf (kb>=104
 
 echo ""
 echo "=== LINK HEALER COMPLETE ==="
-echo "Total Items Evaluated Across Shares: $TOTAL_ITEMS_SCANNED"
+format_num "$TOTAL_ITEMS_SCANNED" TOTAL_ITEMS_SCANNED_FMT
+echo "Total Items Evaluated Across Shares: $TOTAL_ITEMS_SCANNED_FMT"
 if [ "$DRY_RUN" = true ]; then
-    echo "=== SUMMARY: $TOTAL_LINKS_HEALED unlinked files found. Linking them will reclaim: $HUMAN_SAVED_SIZE ==="
+    format_num "$TOTAL_LINKS_HEALED" TOTAL_LINKS_HEALED_FMT
+    echo "=== SUMMARY: $TOTAL_LINKS_HEALED_FMT unlinked files found. Linking them will reclaim: $HUMAN_SAVED_SIZE ==="
 else
-    echo "=== SUMMARY: Successfully re-linked $TOTAL_LINKS_HEALED files, reclaiming: $HUMAN_SAVED_SIZE ==="
+    format_num "$TOTAL_LINKS_HEALED" TOTAL_LINKS_HEALED_FMT
+    echo "=== SUMMARY: Successfully re-linked $TOTAL_LINKS_HEALED_FMT files, reclaiming: $HUMAN_SAVED_SIZE ==="
 fi
 echo "========================================"
 
@@ -261,9 +275,11 @@ if [ "$TOTAL_LINKS_HEALED" -gt 0 ]; then
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
     if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
         if [ "$DRY_RUN" = true ]; then
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed (DRY RUN)" -d "Found $TOTAL_LINKS_HEALED unlinked files. Would reclaim $HUMAN_SAVED_SIZE."
+            format_num "$TOTAL_LINKS_HEALED" TOTAL_LINKS_HEALED_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed (DRY RUN)" -d "Found $TOTAL_LINKS_HEALED_FMT unlinked files. Would reclaim $HUMAN_SAVED_SIZE."
         else
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed" -d "Successfully re-linked $TOTAL_LINKS_HEALED duplicates and reclaimed $HUMAN_SAVED_SIZE."
+            format_num "$TOTAL_LINKS_HEALED" TOTAL_LINKS_HEALED_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed" -d "Successfully re-linked $TOTAL_LINKS_HEALED_FMT duplicates and reclaimed $HUMAN_SAVED_SIZE."
         fi
     fi
 fi

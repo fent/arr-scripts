@@ -47,6 +47,16 @@ COL_RATIO=8
 COL_AGE=8
 COL_TOTAL=$((COL_NAME + COL_SIZE + COL_RATIO + COL_AGE + 9)) # 9 chars for separators
 
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
+
 echo "=== STARTING SEEDING ORPHANS CLEANUP ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
@@ -187,24 +197,31 @@ done
 HUMAN_ORPHAN_SIZE=$(awk -v kb="$TOTAL_ORPHAN_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
 if [ "$DRY_RUN" = true ]; then
-    echo "=== SUMMARY: [DRY-RUN] $ORPHAN_COUNT orphans found, would reclaim $HUMAN_ORPHAN_SIZE ==="
+    format_num "$ORPHAN_COUNT" ORPHAN_COUNT_FMT
+    echo "=== SUMMARY: [DRY-RUN] $ORPHAN_COUNT_FMT orphans found, would reclaim $HUMAN_ORPHAN_SIZE ==="
 else
-    echo "=== SUMMARY: Purged $ORPHAN_COUNT orphans, reclaimed $HUMAN_ORPHAN_SIZE ==="
+    format_num "$ORPHAN_COUNT" ORPHAN_COUNT_FMT
+    echo "=== SUMMARY: Purged $ORPHAN_COUNT_FMT orphans, reclaimed $HUMAN_ORPHAN_SIZE ==="
 fi
 if [ "$ORPHAN_COUNT" -gt 0 ]; then
-    echo "    - Matched Ratio limit (>= $MIN_RATIO): $MATCHED_RATIO_COUNT"
-    echo "    - Matched Time limit (>= ${MIN_SEEDING_DAYS}d): $MATCHED_AGE_COUNT"
+    format_num "$MATCHED_RATIO_COUNT" MATCHED_RATIO_COUNT_FMT
+    echo "    - Matched Ratio limit (>= $MIN_RATIO): $MATCHED_RATIO_COUNT_FMT"
+    format_num "$MATCHED_AGE_COUNT" MATCHED_AGE_COUNT_FMT
+    echo "    - Matched Time limit (>= ${MIN_SEEDING_DAYS}d): $MATCHED_AGE_COUNT_FMT"
     if [ "$MATCHED_BOTH_COUNT" -gt 0 ]; then
-        echo "    - Matched Both limits: $MATCHED_BOTH_COUNT"
+        format_num "$MATCHED_BOTH_COUNT" MATCHED_BOTH_COUNT_FMT
+        echo "    - Matched Both limits: $MATCHED_BOTH_COUNT_FMT"
     fi
 
     # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
     if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
         if [ "$DRY_RUN" = true ]; then
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Orphans (DRY RUN)" -d "Found $ORPHAN_COUNT orphans. Would reclaim $HUMAN_ORPHAN_SIZE."
+            format_num "$ORPHAN_COUNT" ORPHAN_COUNT_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Orphans (DRY RUN)" -d "Found $ORPHAN_COUNT_FMT orphans. Would reclaim $HUMAN_ORPHAN_SIZE."
         else
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Orphans Purged" -d "Successfully purged $ORPHAN_COUNT orphans and reclaimed $HUMAN_ORPHAN_SIZE."
+            format_num "$ORPHAN_COUNT" ORPHAN_COUNT_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Orphans Purged" -d "Successfully purged $ORPHAN_COUNT_FMT orphans and reclaimed $HUMAN_ORPHAN_SIZE."
         fi
     fi
 fi

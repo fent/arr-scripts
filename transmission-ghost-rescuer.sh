@@ -51,6 +51,16 @@ COL_NAME=105
 COL_SIZE=10
 COL_TOTAL=$((COL_NAME + COL_SIZE + 3))
 
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
+
 echo "=== STARTING TRANSMISSION GHOST-LINK RESCUER ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
@@ -185,4 +195,5 @@ done
 HUMAN_TOTAL_SIZE=$(awk -v kb="$TOTAL_RESCUED_SIZE_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
 echo "----------------------------------------"
-echo "=== SUMMARY: Ghost Rescue Candidates Found: $TOTAL_RESCUED_COUNT ($HUMAN_TOTAL_SIZE) ==="
+format_num "$TOTAL_RESCUED_COUNT" TOTAL_RESCUED_COUNT_FMT
+echo "=== SUMMARY: Ghost Rescue Candidates Found: $TOTAL_RESCUED_COUNT_FMT ($HUMAN_TOTAL_SIZE) ==="

@@ -39,9 +39,9 @@ TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
 # Table Formatting
 COL_NAME=80
-COL_ID=5
+COL_SIZE=10
 COL_ERROR=30
-COL_TOTAL=$((COL_NAME + COL_ID + COL_ERROR + 6))
+COL_TOTAL=$((COL_NAME + COL_SIZE + COL_ERROR + 6))
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -91,10 +91,13 @@ for tid in $ALL_IDS; do
     if [[ "$tid" =~ ^[0-9]+$ ]]; then
 
         # Query the explicit, untruncated internal metadata block for this database index
-        TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2>/dev/null </dev/null)
+        TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null < /dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
         TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+        # Strip the useless hardcoded CLI prefix to save table space
+        TRACKER_ERROR_MSG=$(echo "$TRACKER_ERROR_MSG" | sed -E 's/^(Tracker gave an error: |Error: |Tracker: )//i')
 
         if [ -n "$TRACKER_ERROR_MSG" ]; then
             # Extract internal container tracking paths
@@ -118,11 +121,12 @@ for tid in $ALL_IDS; do
 
             if [ -e "$ITEM_PATH" ]; then
                 ITEM_KBYTES=$(du -s "$ITEM_PATH" | awk '{print $1}')
+                HUMAN_SIZE=$(awk -v kb="$ITEM_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
                 TOTAL_TRACKER_ERR_KBYTES=$((TOTAL_TRACKER_ERR_KBYTES + ITEM_KBYTES))
                 TRACKER_ERR_COUNT=$((TRACKER_ERR_COUNT + 1))
 
                 if [ "$HEADER_PRINTED" = false ]; then
-                    printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_ID" "ID" "$COL_ERROR" "Tracker Error"
+                    printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" "$COL_ERROR" "Tracker Error"
                     printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
                     HEADER_PRINTED=true
                 fi
@@ -149,10 +153,10 @@ for tid in $ALL_IDS; do
                 len_byte_err=$(printf "%s" "$disp_err" | wc -c)
                 err_width=$((COL_ERROR + len_byte_err - len_char_err))
 
-                printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_ID" "$tid" "$err_width" "$disp_err"
+                printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE" "$err_width" "$disp_err"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove >/dev/null </dev/null
+                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
                     rm -rf "$ITEM_PATH"
                 fi
             fi

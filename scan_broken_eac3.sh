@@ -36,8 +36,6 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-DB_PATH="/mnt/user/appdata/plex/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-
 # Fast pure-bash function to format numbers with commas
 format_num() {
     local n=$1 res=""
@@ -48,13 +46,37 @@ format_num() {
     printf -v "$2" "%s" "${n}${res}"
 }
 
-if [ ! -f "$DB_PATH" ]; then
-    echo "Error: Could not find Plex database at $DB_PATH"
+PLEX_CONT=$(docker ps --format '{{.Names}}' | grep -i plex | head -n 1)
+if [ -z "$PLEX_CONT" ]; then
+    echo "Error: Could not find a Plex docker container running."
+    exit 1
+fi
+echo "Using Plex container: $PLEX_CONT"
+
+echo "Dynamically locating Plex database..."
+# 1. Check official Plex environment variable first
+APP_SUPPORT=$(docker exec "$PLEX_CONT" sh -c 'echo $PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR')
+
+if [ -n "$APP_SUPPORT" ] && docker exec "$PLEX_CONT" test -f "$APP_SUPPORT/Plug-in Support/Databases/com.plexapp.plugins.library.db"; then
+    DB_INTERNAL_PATH="$APP_SUPPORT/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+# 2. Check standard Linuxserver / Official image path
+elif docker exec "$PLEX_CONT" test -f "/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"; then
+    DB_INTERNAL_PATH="/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+# 3. Check Binhex image path
+elif docker exec "$PLEX_CONT" test -f "/config/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"; then
+    DB_INTERNAL_PATH="/config/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+else
+    # 4. Final safety fallback (restricted maxdepth so it doesn't hang on massive Metadata folders)
+    DB_INTERNAL_PATH=$(docker exec "$PLEX_CONT" find /config -maxdepth 5 -name "com.plexapp.plugins.library.db" -not -path "*/Backups/*" 2>/dev/null | head -n 1)
+fi
+
+if [ -z "$DB_INTERNAL_PATH" ] || ! docker exec "$PLEX_CONT" test -f "$DB_INTERNAL_PATH"; then
+    echo "Error: Could not locate com.plexapp.plugins.library.db inside the container."
     exit 1
 fi
 
-echo "Copying Plex database to RAM..."
-cp "$DB_PATH" /tmp/plex_db_copy.db
+echo "Copying database to RAM ($DB_INTERNAL_PATH)..."
+docker cp "$PLEX_CONT:$DB_INTERNAL_PATH" /tmp/plex_db_copy.db
 
 # Get all EAC3 files with 6 or fewer channels (Standard 5.1 and Stereo)
 sqlite3 /tmp/plex_db_copy.db "
@@ -72,13 +94,6 @@ TOTAL_FILES=$(wc -l </tmp/eac3_51_files.txt | tr -d ' ')
 format_num "$TOTAL_FILES" TOTAL_FMT
 
 echo "Found $TOTAL_FMT standard EAC3 files to test."
-
-PLEX_CONT=$(docker ps --format '{{.Names}}' | grep -i plex | head -n 1)
-if [ -z "$PLEX_CONT" ]; then
-    echo "Error: Could not find a Plex docker container running."
-    exit 1
-fi
-echo "Using ffmpeg inside docker container: $PLEX_CONT"
 
 OUTPUT_FILE="$(pwd)/broken_eac3_list.txt"
 

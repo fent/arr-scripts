@@ -65,9 +65,12 @@ elif docker exec "$PLEX_CONT" test -f "/config/Library/Application Support/Plex 
 # 3. Check Binhex image path
 elif docker exec "$PLEX_CONT" test -f "/config/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"; then
     DB_INTERNAL_PATH="/config/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+# 4. Check Hotio / Custom unRaid direct mapping
+elif docker exec "$PLEX_CONT" test -f "/config/Plug-in Support/Databases/com.plexapp.plugins.library.db"; then
+    DB_INTERNAL_PATH="/config/Plug-in Support/Databases/com.plexapp.plugins.library.db"
 else
-    # 4. Final safety fallback (restricted maxdepth so it doesn't hang on massive Metadata folders)
-    DB_INTERNAL_PATH=$(docker exec "$PLEX_CONT" find /config -maxdepth 5 -name "com.plexapp.plugins.library.db" -not -path "*/Backups/*" 2>/dev/null | head -n 1)
+    # 5. Final safety fallback (ignore all backup variations)
+    DB_INTERNAL_PATH=$(docker exec "$PLEX_CONT" find /config -maxdepth 5 -name "com.plexapp.plugins.library.db" -not -path "*[Bb]ackup*" 2>/dev/null | head -n 1)
 fi
 
 if [ -z "$DB_INTERNAL_PATH" ] || ! docker exec "$PLEX_CONT" test -f "$DB_INTERNAL_PATH"; then

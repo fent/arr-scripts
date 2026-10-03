@@ -12,11 +12,11 @@
 # 2. Spawns an isolated instance of Plex's proprietary EAE transcoder engine.
 # 3. Feeds 50 frames of each file directly into the engine.
 # 4. If the engine spits out continuous "Cannot group in blocks of 6!" errors,
-#    the file is flagged as corrupted and safely logged to broken_eac3_list.txt
+#    the file is flagged as corrupted and safely logged to broken-eac3-list.txt
 #
 # USAGE:
-# Run normally: ./scan_broken_eac3.sh
-# Resume scan:  ./scan_broken_eac3.sh --continue-from 4400
+# Run normally: ./scan-broken-eac3.sh
+# Resume scan:  ./scan-broken-eac3.sh --continue-from 4400
 # ==============================================================================
 
 START_AT=0
@@ -35,7 +35,7 @@ while [[ "$#" -gt 0 ]]; do
         ;;
     *)
         echo "Unknown parameter: $1"
-        echo "Usage: ./scan_broken_eac3.sh [--continue-from <number>] [--recent <hours>]"
+        echo "Usage: ./scan-broken-eac3.sh [--continue-from <number>] [--recent <hours>]"
         exit 1
         ;;
     esac
@@ -106,22 +106,22 @@ WHERE media_streams.stream_type_id = 2
   AND media_streams.channels <= 6
   $TIME_FILTER
 GROUP BY media_parts.file;
-" > /tmp/eac3_51_files.txt
+" > /tmp/eac3-51-files.txt
 rm /tmp/plex_db_copy.db
 
-TOTAL_FILES=$(wc -l < /tmp/eac3_51_files.txt | tr -d ' ')
+TOTAL_FILES=$(wc -l < /tmp/eac3-51-files.txt | tr -d ' ')
 format_num "$TOTAL_FILES" TOTAL_FMT
 
 echo "Found $TOTAL_FMT standard EAC3 files to test."
 
-OUTPUT_FILE="$(pwd)/broken_eac3_list.txt"
+OUTPUT_FILE="$(pwd)/broken-eac3-list.txt"
 
 # If we are starting from 0, clear the output file. Otherwise, append to it.
 if [ "$START_AT" -eq 0 ]; then
     : > "$OUTPUT_FILE"
     echo "Starting deep scan from the beginning..."
 else
-    echo "Resuming scan from file #$START_AT. Appending to existing broken_eac3_list.txt..."
+    echo "Resuming scan from file #$START_AT. Appending to existing broken-eac3-list.txt..."
 fi
 
 COUNT=0
@@ -179,7 +179,7 @@ while IFS= read -r file; do
         BROKEN=$((BROKEN + 1))
     fi
 
-done < /tmp/eac3_51_files.txt
+done < /tmp/eac3-51-files.txt
 
 format_num "$BROKEN" BROKEN_FMT
 
@@ -191,7 +191,7 @@ echo "List saved to $OUTPUT_FILE"
 # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
 if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
     if [ "$BROKEN" -gt 0 ]; then
-        /usr/local/emhttp/webGui/scripts/notify -i warning -s "Plex EAC3 Scan" -d "Found $BROKEN_FMT broken EAC3 files. See broken_eac3_list.txt for details."
+        /usr/local/emhttp/webGui/scripts/notify -i warning -s "Plex EAC3 Scan" -d "Found $BROKEN_FMT broken EAC3 files. See broken-eac3-list.txt for details."
     else
         /usr/local/emhttp/webGui/scripts/notify -i normal -s "Plex EAC3 Scan" -d "Daily scan complete. No broken files found."
     fi

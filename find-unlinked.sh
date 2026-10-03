@@ -16,7 +16,7 @@
 #      from the media index — meaning no hard link exists in the library.
 #
 # USAGE:
-#   ./find_unlinked.sh \
+#   ./find-unlinked.sh \
 #       -d /mnt/user/data/downloads/tv \
 #       -m /mnt/user/data/media/tv/MyShow \
 #       -s "MyShow" "My.Show"

@@ -15,7 +15,7 @@
 #   3. Prints a per-file [STILL LINKED] or [NOT LINKED] result and a summary.
 #
 # USAGE:
-#   ./find_active_links.sh -m /mnt/user/data/media/tv/MyShow \
+#   ./find-active-links.sh -m /mnt/user/data/media/tv/MyShow \
 #       -f /mnt/user/data/downloads/tv/MyShow.S01 /mnt/user/data/downloads/tv/MyShow.S02
 #
 # USE CASE:

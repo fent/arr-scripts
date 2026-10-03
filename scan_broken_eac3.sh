@@ -186,3 +186,13 @@ format_num "$BROKEN" BROKEN_FMT
 echo -e "\n-----------------------------------------------------------------"
 echo "Scan complete! Found a total of $BROKEN_FMT severely broken files."
 echo "List saved to $OUTPUT_FILE"
+
+# Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
+# The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
+if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+    if [ "$BROKEN" -gt 0 ]; then
+        /usr/local/emhttp/webGui/scripts/notify -i warning -s "Plex EAC3 Scan" -d "Found $BROKEN_FMT broken EAC3 files. See broken_eac3_list.txt for details."
+    else
+        /usr/local/emhttp/webGui/scripts/notify -i normal -s "Plex EAC3 Scan" -d "Daily scan complete. No broken files found."
+    fi
+fi

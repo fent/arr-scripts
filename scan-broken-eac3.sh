@@ -105,7 +105,8 @@ WHERE media_streams.stream_type_id = 2
   AND media_streams.codec = 'eac3'
   AND media_streams.channels <= 6
   $TIME_FILTER
-GROUP BY media_parts.file;
+GROUP BY media_parts.file
+ORDER BY media_parts.id ASC;
 " > /tmp/eac3-51-files.txt
 rm /tmp/plex_db_copy.db
 

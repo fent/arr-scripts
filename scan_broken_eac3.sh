@@ -20,6 +20,7 @@
 # ==============================================================================
 
 START_AT=0
+RECENT_HOURS=0
 
 # Parse arguments for resume functionality
 while [[ "$#" -gt 0 ]]; do
@@ -28,9 +29,13 @@ while [[ "$#" -gt 0 ]]; do
         START_AT="$2"
         shift 2
         ;;
+    --recent)
+        RECENT_HOURS="$2"
+        shift 2
+        ;;
     *)
         echo "Unknown parameter: $1"
-        echo "Usage: ./scan_broken_eac3.sh [--continue-from <number>]"
+        echo "Usage: ./scan_broken_eac3.sh [--continue-from <number>] [--recent <hours>]"
         exit 1
         ;;
     esac
@@ -70,7 +75,7 @@ elif docker exec "$PLEX_CONT" test -f "/config/Plug-in Support/Databases/com.ple
     DB_INTERNAL_PATH="/config/Plug-in Support/Databases/com.plexapp.plugins.library.db"
 else
     # 5. Final safety fallback (ignore all backup variations)
-    DB_INTERNAL_PATH=$(docker exec "$PLEX_CONT" find /config -maxdepth 5 -name "com.plexapp.plugins.library.db" -not -path "*[Bb]ackup*" 2>/dev/null | head -n 1)
+    DB_INTERNAL_PATH=$(docker exec "$PLEX_CONT" find /config -maxdepth 5 -name "com.plexapp.plugins.library.db" -not -path "*[Bb]ackup*" 2> /dev/null | head -n 1)
 fi
 
 if [ -z "$DB_INTERNAL_PATH" ] || ! docker exec "$PLEX_CONT" test -f "$DB_INTERNAL_PATH"; then
@@ -81,6 +86,16 @@ fi
 echo "Copying database to RAM ($DB_INTERNAL_PATH)..."
 docker cp "$PLEX_CONT:$DB_INTERNAL_PATH" /tmp/plex_db_copy.db
 
+# Build the time filter
+if [ "$RECENT_HOURS" -gt 0 ]; then
+    TIME_SEC=$((RECENT_HOURS * 3600))
+    TIME_FILTER="AND media_parts.created_at > (strftime('%s', 'now') - $TIME_SEC)"
+    echo "Filtering database to EAC3 files added in the last $RECENT_HOURS hours..."
+else
+    TIME_FILTER=""
+    echo "Querying database for all standard EAC3 files..."
+fi
+
 # Get all EAC3 files with 6 or fewer channels (Standard 5.1 and Stereo)
 sqlite3 /tmp/plex_db_copy.db "
 SELECT media_parts.file 
@@ -89,11 +104,12 @@ JOIN media_parts ON media_streams.media_part_id = media_parts.id
 WHERE media_streams.stream_type_id = 2 
   AND media_streams.codec = 'eac3'
   AND media_streams.channels <= 6
+  $TIME_FILTER
 GROUP BY media_parts.file;
-" >/tmp/eac3_51_files.txt
+" > /tmp/eac3_51_files.txt
 rm /tmp/plex_db_copy.db
 
-TOTAL_FILES=$(wc -l </tmp/eac3_51_files.txt | tr -d ' ')
+TOTAL_FILES=$(wc -l < /tmp/eac3_51_files.txt | tr -d ' ')
 format_num "$TOTAL_FILES" TOTAL_FMT
 
 echo "Found $TOTAL_FMT standard EAC3 files to test."
@@ -102,7 +118,7 @@ OUTPUT_FILE="$(pwd)/broken_eac3_list.txt"
 
 # If we are starting from 0, clear the output file. Otherwise, append to it.
 if [ "$START_AT" -eq 0 ]; then
-    : >"$OUTPUT_FILE"
+    : > "$OUTPUT_FILE"
     echo "Starting deep scan from the beginning..."
 else
     echo "Resuming scan from file #$START_AT. Appending to existing broken_eac3_list.txt..."
@@ -111,7 +127,7 @@ fi
 COUNT=0
 # If resuming, figure out how many broken files we already found so the counter isn't reset
 if [ -f "$OUTPUT_FILE" ]; then
-    BROKEN=$(wc -l <"$OUTPUT_FILE" | tr -d ' ')
+    BROKEN=$(wc -l < "$OUTPUT_FILE" | tr -d ' ')
 else
     BROKEN=0
 fi
@@ -146,7 +162,7 @@ while IFS= read -r file; do
     # Print status (overwrites the line)
     echo -ne "Scanning $COUNT_FMT / $TOTAL_FMT  |  Corrupted: $BROKEN_FMT \r"
 
-    ERR=$(docker exec "$PLEX_CONT" timeout 10 env EAE_ROOT=/tmp/eae_test /app/bin/usr/lib/plexmediaserver/Plex\ Transcoder -y -nostdin -v error -i "$file" -map 0:a:0 -frames:a 50 -f wav /dev/null 2>&1 </dev/null)
+    ERR=$(docker exec "$PLEX_CONT" timeout 10 env EAE_ROOT=/tmp/eae_test /app/bin/usr/lib/plexmediaserver/Plex\ Transcoder -y -nostdin -v error -i "$file" -map 0:a:0 -frames:a 50 -f wav /dev/null 2>&1 < /dev/null)
 
     # Ignore "No such file" errors
     if echo "$ERR" | grep -q "No such file or directory"; then
@@ -159,11 +175,11 @@ while IFS= read -r file; do
     # If it spewed continuous corruption errors (> 10)
     if [ "$ERROR_COUNT" -gt 10 ]; then
         echo -e "\n[CORRUPT] $file"
-        echo "$file" >>"$OUTPUT_FILE"
+        echo "$file" >> "$OUTPUT_FILE"
         BROKEN=$((BROKEN + 1))
     fi
 
-done </tmp/eac3_51_files.txt
+done < /tmp/eac3_51_files.txt
 
 format_num "$BROKEN" BROKEN_FMT
 

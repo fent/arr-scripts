@@ -42,6 +42,7 @@ COL_NAME=80
 COL_SIZE=10
 COL_ERROR=30
 COL_TOTAL=$((COL_NAME + COL_SIZE + COL_ERROR + 6))
+NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -137,7 +138,7 @@ for tid in $ALL_IDS; do
                 TRACKER_ERR_COUNT=$((TRACKER_ERR_COUNT + 1))
 
                 if [ "$HEADER_PRINTED" = false ]; then
-                    printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" "$COL_ERROR" "Tracker Error"
+                    printf "%-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" "$COL_ERROR" "Tracker Error" | sed "s/  /${NBSP}${NBSP}/g"
                     printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
                     HEADER_PRINTED=true
                 fi
@@ -164,7 +165,7 @@ for tid in $ALL_IDS; do
                 len_byte_err=$(printf "%s" "$disp_err" | wc -c)
                 err_width=$((COL_ERROR + len_byte_err - len_char_err))
 
-                printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE" "$err_width" "$disp_err"
+                printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE" "$err_width" "$disp_err" | sed "s/  /${NBSP}${NBSP}/g"
 
                 if [ "$DRY_RUN" = false ]; then
                     docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null

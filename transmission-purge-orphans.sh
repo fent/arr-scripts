@@ -46,6 +46,7 @@ COL_SIZE=10
 COL_RATIO=8
 COL_AGE=8
 COL_TOTAL=$((COL_NAME + COL_SIZE + COL_RATIO + COL_AGE + 9)) # 9 chars for separators
+NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -181,7 +182,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                 ITEM_HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
 
                 if [ "$HEADER_PRINTED" = false ]; then
-                    printf "%-*s | %-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" "$COL_RATIO" "Ratio" "$COL_AGE" "Age"
+                    printf "%-*s | %-*s | %-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" "$COL_RATIO" "Ratio" "$COL_AGE" "Age" | sed "s/  /${NBSP}${NBSP}/g"
                     printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
                     HEADER_PRINTED=true
                 fi
@@ -197,7 +198,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                 len_byte=$(printf "%s" "$disp_name" | wc -c)
                 name_width=$((COL_NAME + len_byte - len_char))
 
-                printf "%-*s | %-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d"
+                printf "%-*s | %-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d" | sed "s/  /${NBSP}${NBSP}/g"
 
                 if [ "$DRY_RUN" = false ]; then
                     docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove > /dev/null < /dev/null

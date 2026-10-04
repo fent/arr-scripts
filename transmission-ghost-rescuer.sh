@@ -50,6 +50,7 @@ MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
 COL_NAME=105
 COL_SIZE=10
 COL_TOTAL=$((COL_NAME + COL_SIZE + 3))
+NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -159,7 +160,7 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
             HUMAN_SIZE=$(du -sh "$item_path" | awk '{print $1}')
 
             if [ "$HEADER_PRINTED" = false ]; then
-                printf "%-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size"
+                printf "%-*s | %-*s\n" "$COL_NAME" "Name" "$COL_SIZE" "Size" | sed "s/  /${NBSP}${NBSP}/g"
                 printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
                 HEADER_PRINTED=true
             fi
@@ -175,7 +176,7 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
             len_byte=$(printf "%s" "$disp_name" | wc -c)
             name_width=$((COL_NAME + len_byte - len_char))
 
-            printf "%-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE"
+            printf "%-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE" | sed "s/  /${NBSP}${NBSP}/g"
 
             if [ "$DRY_RUN" = false ]; then
                 # NOTE: To perform automatic injection, the original .torrent file or magnet link

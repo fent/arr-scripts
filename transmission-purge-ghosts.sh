@@ -67,13 +67,28 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Pulling deep metadata sheets for all active torrents..."
-ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>&1)
+echo "Verifying Transmission RPC connection..."
+if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
+    echo "ERROR: Failed to connect to Transmission RPC."
+    echo "Output: $RAW_MANIFEST"
+    exit 1
+fi
 
-if echo "$ALL_TORRENT_DETAILS" | grep -q "401: Unauthorized"; then
+if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."
     exit 1
 fi
+
+# A valid response will ALWAYS contain a "Sum:" row, even if there are 0 torrents loaded.
+if ! echo "$RAW_MANIFEST" | grep -q "Sum:"; then
+    echo "ERROR: Transmission did not return a valid torrent list. Safety abort."
+    echo "Output: $RAW_MANIFEST"
+    exit 1
+fi
+
+echo "Pulling deep metadata sheets for all active torrents..."
+ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>&1)
+
 
 # -----------------------------------------------------------------
 # POPULATE HASHMAP WITH LITERAL DISK PAYLOAD PATH NAMES

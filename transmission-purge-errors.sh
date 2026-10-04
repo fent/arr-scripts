@@ -68,14 +68,25 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Caching entire torrent manifest from Transmission..."
-RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
+echo "Verifying Transmission RPC connection..."
+if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
+    echo "ERROR: Failed to connect to Transmission RPC."
+    echo "Output: $RAW_MANIFEST"
+    exit 1
+fi
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed. Check TR_USER and TR_PASS."
     exit 1
 fi
 
+if ! echo "$RAW_MANIFEST" | grep -q "Sum:"; then
+    echo "ERROR: Transmission did not return a valid torrent list. Safety abort."
+    echo "Output: $RAW_MANIFEST"
+    exit 1
+fi
+
+echo "Caching entire torrent manifest from Transmission..."
 # Extract every active numerical ID row cleanly out of Transmission's list table
 ALL_IDS=$(echo "$RAW_MANIFEST" | tail -n +2 | head -n -1 | awk '{print $1}' | tr -d '*')
 

@@ -152,11 +152,12 @@ for dl_dir in "${MATCHED_DIRS[@]}"; do
     done < <(find "$dl_dir" -type f -print0 2> /dev/null)
 done
 
+scanned_count_FMT=""
 format_num "$scanned_count" scanned_count_FMT
 echo "Scanned $scanned_count_FMT files across matched download folders."
 echo ""
 
-if [ $UNLINKED_COUNT -eq 0 ]; then
+if [ "$UNLINKED_COUNT" -eq 0 ]; then
     echo "Everything in the matched download folders is already hardlinked to the series folder."
     exit 0
 fi

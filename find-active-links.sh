@@ -150,8 +150,10 @@ for folder in "${FOLDERS[@]}"; do
 
     echo ""
     echo "Summary for '$(basename "$folder_path")':"
+    linked_count_FMT=""
     format_num "$linked_count" linked_count_FMT
     echo "  - Active links in media: $linked_count_FMT"
+    unlinked_count_FMT=""
     format_num "$unlinked_count" unlinked_count_FMT
     echo "  - Unlinked / abandoned : $unlinked_count_FMT"
     echo ""

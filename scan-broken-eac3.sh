@@ -89,7 +89,7 @@ docker cp "$PLEX_CONT:$DB_INTERNAL_PATH" /tmp/plex_db_copy.db
 # Build the time filter
 if [ "$RECENT_HOURS" -gt 0 ]; then
     TIME_SEC=$((RECENT_HOURS * 3600))
-    TIME_FILTER="AND media_parts.created_at > (strftime('%s', 'now') - $TIME_SEC)"
+    TIME_FILTER="AND metadata_items.added_at > (CAST(strftime('%s', 'now') AS INTEGER) - $TIME_SEC)"
     echo "Filtering database to EAC3 files added in the last $RECENT_HOURS hours..."
 else
     TIME_FILTER=""
@@ -101,6 +101,8 @@ sqlite3 /tmp/plex_db_copy.db "
 SELECT media_parts.file
 FROM media_streams
 JOIN media_parts ON media_streams.media_part_id = media_parts.id
+JOIN media_items ON media_parts.media_item_id = media_items.id
+JOIN metadata_items ON media_items.metadata_item_id = metadata_items.id
 WHERE media_streams.stream_type_id = 2
   AND media_streams.codec = 'eac3'
   AND media_streams.channels <= 6

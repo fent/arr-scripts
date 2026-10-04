@@ -95,7 +95,7 @@ while IFS= read -r -d $'\0' d; do
             break
         fi
     done
-done < <(find "$DOWNLOADS_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+done < <(find "$DOWNLOADS_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null)
 
 if [ ${#MATCHED_DIRS_MAP[@]} -eq 0 ]; then
     echo "No directories in '$DOWNLOADS_DIR' matched your search terms: ${SEARCH_TERMS[*]}"
@@ -121,16 +121,16 @@ while IFS= read -r -d $'\0' f; do
     ext="${f##*.}"
     ext="${ext,,}"
     if [[ "$ext" =~ ^(mkv|mp4|avi|ts)$ ]]; then
-        ino=$(stat -c '%i' "$f" 2>/dev/null)
+        ino=$(stat -c '%i' "$f" 2> /dev/null)
         if [ -n "$ino" ]; then
             IMPORTED_INODES[$ino]=1
         fi
     fi
-done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
+done < <(find "$MEDIA_DIR" -type f -print0 2> /dev/null)
 
 IMPORTED_COUNT=${#IMPORTED_INODES[@]}
-    format_num "$IMPORTED_COUNT" IMPORTED_COUNT_FMT
-    echo "  Found $IMPORTED_COUNT_FMT existing video files in this series."
+format_num "$IMPORTED_COUNT" IMPORTED_COUNT_FMT
+echo "  Found $IMPORTED_COUNT_FMT existing video files in this series."
 echo ""
 
 # 3. Only scan matched download folders
@@ -144,12 +144,12 @@ for dl_dir in "${MATCHED_DIRS[@]}"; do
         ext="${ext,,}"
         if [[ "$ext" =~ ^(mkv|mp4|avi|ts)$ ]]; then
             scanned_count=$((scanned_count + 1))
-            ino=$(stat -c '%i' "$f" 2>/dev/null)
+            ino=$(stat -c '%i' "$f" 2> /dev/null)
             if [ -n "$ino" ] && [ -z "${IMPORTED_INODES[$ino]}" ]; then
                 UNLINKED+=("$f")
             fi
         fi
-    done < <(find "$dl_dir" -type f -print0 2>/dev/null)
+    done < <(find "$dl_dir" -type f -print0 2> /dev/null)
 done
 
 format_num "$scanned_count" scanned_count_FMT
@@ -165,7 +165,7 @@ UNLINKED_COUNT=${#UNLINKED[@]}
 format_num "$UNLINKED_COUNT" UNLINKED_COUNT_FMT
 echo "=== Found $UNLINKED_COUNT_FMT Unlinked Video File(s) ==="
 for f in "${UNLINKED[@]}"; do
-    size_bytes=$(stat -c '%s' "$f" 2>/dev/null || echo 0)
+    size_bytes=$(stat -c '%s' "$f" 2> /dev/null || echo 0)
     size_gb=$(awk -v b="$size_bytes" 'BEGIN { printf "%.2f", b / (1024^3) }')
     echo "  [MISSING] $(basename "$f") (${size_gb} GB)"
     echo "    Path: $f"

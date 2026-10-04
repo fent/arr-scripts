@@ -93,7 +93,7 @@ while IFS= read -r info_line; do
             LIVE_FILENAME_MAP["$disk_name"]=1
         fi
     fi
-done <<<"$ALL_TORRENT_DETAILS"
+done <<< "$ALL_TORRENT_DETAILS"
 
 echo "Database mapping complete (${#LIVE_FILENAME_MAP[@]} physical root assets cached)."
 echo "Scanning disk shares: ${TARGET_FOLDERS[*]}..."

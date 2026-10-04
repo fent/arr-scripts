@@ -37,7 +37,7 @@ CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
 BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE"          # <--- CHANGE THIS
+TR_USER="YOUR_USERNAME_HERE" # <--- CHANGE THIS
 TR_PASS="YOUR_PASSWORD_HERE" # <--- CHANGE THIS
 
 # Source folders to inspect for ghost assets
@@ -89,7 +89,7 @@ fi
 # on Linux, os_specific=false so Win32 reserved chars (", *, :, <, >, ?, \, |) -> '_'.
 # This makes the hashmap key match the literal folder/file name written to disk.
 echo "Building sanitized torrent name index..."
-ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>/dev/null)
+ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2> /dev/null)
 declare -A LIVE_NAME_MAP
 while IFS= read -r info_line; do
     if [[ "$info_line" =~ ^[[:space:]]+Name:[[:space:]]+(.+)$ ]]; then
@@ -99,7 +99,7 @@ while IFS= read -r info_line; do
             LIVE_NAME_MAP["$disk_name"]=1
         fi
     fi
-done <<<"$ALL_TORRENT_DETAILS"
+done <<< "$ALL_TORRENT_DETAILS"
 echo "Index built (${#LIVE_NAME_MAP[@]} torrents cached)."
 echo "Scanning disk shares: ${SOURCE_FOLDERS[*]}..."
 echo "----------------------------------------"
@@ -138,7 +138,7 @@ for folder in "${SOURCE_FOLDERS[@]}"; do
                         break
                     fi
                 fi
-            done < <(find "$item_path" -type f -print0 2>/dev/null)
+            done < <(find "$item_path" -type f -print0 2> /dev/null)
         else
             # If it's a single file, check its link count directly
             if echo "$ITEM_NAME" | grep -E -q -i "\.(${MEDIA_EXTS})$"; then

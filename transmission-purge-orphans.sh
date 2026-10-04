@@ -100,7 +100,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                     still_linked=true
                     break
                 fi
-            done < <(find "$item_path" -type f -print0 2>/dev/null)
+            done < <(find "$item_path" -type f -print0 2> /dev/null)
         else
             if [ "$(stat -c '%h' "$item_path")" -gt 1 ]; then
                 still_linked=true
@@ -182,7 +182,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
                 printf "%-*s | %-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" "$COL_RATIO" "$CURRENT_RATIO" "$COL_AGE" "${DAYS_SEEDING}d"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove >/dev/null </dev/null
+                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$TORRENT_ID" --remove > /dev/null < /dev/null
                     rm -rf "$item_path"
                 fi
             fi

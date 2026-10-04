@@ -77,7 +77,7 @@ while IFS= read -r -d $'\0' f; do
     ext="${f##*.}"
     ext="${ext,,}" # to lowercase
     if [[ "$ext" =~ ^(mkv|mp4|avi|ts)$ ]]; then
-        ino=$(stat -c '%i' "$f" 2>/dev/null)
+        ino=$(stat -c '%i' "$f" 2> /dev/null)
         if [ -n "$ino" ]; then
             if [[ -n "${MEDIA_INODES[$ino]}" ]]; then
                 MEDIA_INODES[$ino]+="|$f"
@@ -86,7 +86,7 @@ while IFS= read -r -d $'\0' f; do
             fi
         fi
     fi
-done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
+done < <(find "$MEDIA_DIR" -type f -print0 2> /dev/null)
 
 echo "  Indexed ${#MEDIA_INODES[@]} unique video inodes in media library."
 echo ""
@@ -112,7 +112,7 @@ for folder in "${FOLDERS[@]}"; do
         if [[ "$ext" =~ ^(mkv|mp4|avi|ts)$ ]]; then
             FILES+=("$f")
         fi
-    done < <(find "$folder_path" -type f -print0 2>/dev/null)
+    done < <(find "$folder_path" -type f -print0 2> /dev/null)
 
     if [ ${#FILES[@]} -eq 0 ]; then
         echo "  No video files found in this folder."
@@ -128,7 +128,7 @@ for folder in "${FOLDERS[@]}"; do
 
     for f in "${sorted_files[@]}"; do
         [ -z "$f" ] && continue
-        ino=$(stat -c '%i' "$f" 2>/dev/null)
+        ino=$(stat -c '%i' "$f" 2> /dev/null)
         if [ -z "$ino" ]; then continue; fi
 
         matches="${MEDIA_INODES[$ino]}"
@@ -137,7 +137,7 @@ for folder in "${FOLDERS[@]}"; do
         if [ -n "$matches" ]; then
             linked_count=$((linked_count + 1))
             echo "  [STILL LINKED] $fname"
-            IFS='|' read -r -a match_arr <<<"$matches"
+            IFS='|' read -r -a match_arr <<< "$matches"
             for m in "${match_arr[@]}"; do
                 rel_path="${m#"$MEDIA_DIR"/}"
                 echo "    --> Media: $rel_path"

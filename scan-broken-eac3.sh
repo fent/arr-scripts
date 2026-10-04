@@ -98,10 +98,10 @@ fi
 
 # Get all EAC3 files with 6 or fewer channels (Standard 5.1 and Stereo)
 sqlite3 /tmp/plex_db_copy.db "
-SELECT media_parts.file 
+SELECT media_parts.file
 FROM media_streams
 JOIN media_parts ON media_streams.media_part_id = media_parts.id
-WHERE media_streams.stream_type_id = 2 
+WHERE media_streams.stream_type_id = 2
   AND media_streams.codec = 'eac3'
   AND media_streams.channels <= 6
   $TIME_FILTER

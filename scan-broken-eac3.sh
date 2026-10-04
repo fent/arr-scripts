@@ -33,10 +33,14 @@ while [[ "$#" -gt 0 ]]; do
         RECENT_HOURS="$2"
         shift 2
         ;;
-    *)
+    -*)
         echo "Unknown parameter: $1"
         echo "Usage: ./scan-broken-eac3.sh [--continue-from <number>] [--recent <hours>]"
         exit 1
+        ;;
+    *)
+        # Ignore positional arguments (Unraid User Scripts injects 'cron' or 'background')
+        shift
         ;;
     esac
 done

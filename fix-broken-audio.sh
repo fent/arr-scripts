@@ -9,10 +9,11 @@ PLEX_CONT="plex"
 LIST_FILE="broken-eac3-list.txt"
 
 # PATH TRANSLATION:
-# Set these to match how your media is mapped in your Plex Docker template.
-# Example: If Plex sees "/data/movies/..." and Unraid sees "/mnt/user/data/movies/..."
-PLEX_MOUNT="/data"
-HOST_MOUNT="/mnt/user/data"
+# Map your Plex container paths to your Unraid host paths.
+# You can add as many as you need (e.g., "/tv"="/mnt/user/tv")
+declare -A PATH_MAPPINGS=(
+    ["/media"]="/mnt/user/downloads"
+)
 # ---------------------
 
 if [ ! -f "$LIST_FILE" ]; then
@@ -31,7 +32,14 @@ while IFS= read -r PLEX_PATH; do
     [ -z "$PLEX_PATH" ] && continue
 
     # Translate the path from Plex's perspective to the Unraid Host's perspective
-    HOST_PATH="${PLEX_PATH/#$PLEX_MOUNT/$HOST_MOUNT}"
+    HOST_PATH="$PLEX_PATH"
+    for plex_mnt in "${!PATH_MAPPINGS[@]}"; do
+        host_mnt="${PATH_MAPPINGS[$plex_mnt]}"
+        if [[ "$PLEX_PATH" == "$plex_mnt"* ]]; then
+            HOST_PATH="${PLEX_PATH/#$plex_mnt/$host_mnt}"
+            break
+        fi
+    done
 
     if [ ! -f "$HOST_PATH" ]; then
         echo "[x] Skipped: File not found on host (Check path translation!): $HOST_PATH"

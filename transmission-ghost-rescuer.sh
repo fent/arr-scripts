@@ -31,7 +31,7 @@ TR_USER="YOUR_USERNAME_HERE"
 TR_PASS="YOUR_PASSWORD_HERE"
 
 # Source folders to inspect for ghost assets
-TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
+TARGET_FOLDERS=("tv" "tv-imported" "tv-fourk" "movies" "movies-fourk")
 
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"

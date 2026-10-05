@@ -42,11 +42,11 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # -----------------------------------------------------------------
 
 declare -A FOLDER_MAP
-FOLDER_MAP[".tv"]="${BASE_PATH}/TV"
-FOLDER_MAP[".tv-imported"]="${BASE_PATH}/TV"
-FOLDER_MAP[".tvfourk"]="${BASE_PATH}/TV4k"
-FOLDER_MAP[".movies"]="${BASE_PATH}/Movies"
-FOLDER_MAP[".moviesfourk"]="${BASE_PATH}/Movies4k"
+FOLDER_MAP["tv"]="${BASE_PATH}/TV"
+FOLDER_MAP["tv-imported"]="${BASE_PATH}/TV"
+FOLDER_MAP["tv-fourk"]="${BASE_PATH}/TV4k"
+FOLDER_MAP["movies"]="${BASE_PATH}/Movies"
+FOLDER_MAP["movies-fourk"]="${BASE_PATH}/Movies4k"
 
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
@@ -98,7 +98,6 @@ if ! echo "$RAW_MANIFEST" | grep -q "Sum:"; then
     echo "Output: $RAW_MANIFEST"
     exit 1
 fi
-
 
 # Load previously verified inodes into memory
 touch "$VERIFIED_CACHE"

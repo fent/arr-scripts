@@ -27,7 +27,7 @@ TR_USER="YOUR_USERNAME_HERE"
 TR_PASS="YOUR_PASSWORD_HERE"
 
 # Target subdirectories to audit
-TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
+TARGET_FOLDERS=("tv" "tv-imported" "tv-fourk" "movies" "movies-fourk")
 
 # Table Formatting
 COL_NAME=105

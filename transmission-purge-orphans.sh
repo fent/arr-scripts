@@ -1,25 +1,21 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: TRANSMISSION SEEDING ORPHANS PURGER
+# SCRIPT DESCRIPTION: TRANSMISSION PURGE ORPHANS
 # ==============================================================================
 # PURPOSE:
-# This script identifies and removes active torrents that are currently seeding
-# inside Transmission but have been upgraded or deleted from your media library.
+#   This script identifies and removes active torrents that are currently seeding
+#   inside Transmission but have been upgraded or deleted from your media library.
 #
 # HOW IT WORKS:
-# 1. It scans your media download directories (.tv, .movies, etc.) on disk.
-# 2. It checks the Linux "Hard Link Count" for every media file found.
-# 3. If a file has a Link Count of EXACTLY 1, it means the sorted companion file
-#    inside your media library no longer exists (e.g., Sonarr/Radarr replaced it).
-# 4. It cross-references that orphan file against Transmission's live manifest.
-# 5. If the torrent meets EITHER of your safety thresholds (seeding for >= 30 days
-#    OR has reached a >= 2.0 ratio), it tells Transmission to safely purge the
-#    session memory and completely delete the duplicate files from your array.
-#
-# SAFETY GATES:
-# Any active, wanted media files currently hard-linked to your library (Link Count >= 2)
-# are completely skipped and protected from deletion, regardless of their age or ratio.
+#   1. Scans your media download folders.
+#   2. If a file has a link count of exactly 1, it means the companion file
+#      inside the media library no longer exists (e.g., Sonarr/Radarr replaced it).
+#   3. It cheks if that file exists in Transmission.
+#   4. If the torrent meets EITHER of your safety thresholds (seeding for >= 30 days
+#      OR has reached a >= 2.0 ratio), it's considered for deletion.
+#   5. If DRY_RUN is false, it tells Transmission to delete the torrent along
+#      with its data.
 # ==============================================================================
 
 # ==========================================
@@ -36,7 +32,7 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # Target subdirectories to audit (Excluding .music)
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
-# Configurable Seeding Thresholds (Meeting EITHER parameter triggers deletion)
+# Seeding Thresholds (Meeting EITHER parameter triggers deletion)
 MIN_SEEDING_DAYS=30
 MIN_RATIO="2.0"
 
@@ -46,7 +42,11 @@ COL_SIZE=10
 COL_RATIO=8
 COL_AGE=8
 COL_TOTAL=$((COL_NAME + COL_SIZE + COL_RATIO + COL_AGE + 9)) # 9 chars for separators
-NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
+NBSP=$'\xC2\xA0'                                             # Non-breaking space for web UI formatting
+
+echo "=== STARTING TRANSMISSION PURGE ORPHANS ==="
+echo "Dry Run Mode: $DRY_RUN"
+echo "----------------------------------------"
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -58,10 +58,6 @@ format_num() {
     printf -v "$2" "%s" "${n}${res}"
 }
 
-echo "=== STARTING SEEDING ORPHANS CLEANUP ==="
-echo "Dry Run Mode: $DRY_RUN"
-echo "----------------------------------------"
-
 AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
     AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
@@ -71,7 +67,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Verifying Transmission RPC connection..."
+echo "Fetching torrent manifest from Transmission..."
 if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
     echo "ERROR: Failed to connect to Transmission RPC."
     echo "Output: $RAW_MANIFEST"

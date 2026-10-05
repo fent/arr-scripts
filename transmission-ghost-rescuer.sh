@@ -1,32 +1,22 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: GHOST LINK RESCUER
+# SCRIPT DESCRIPTION: TRANSMISSION GHOST RESCUER
 # ==============================================================================
 # PURPOSE:
 #   Identifies download folder items that have disappeared from Transmission's
 #   session (e.g. after a Transmission database reset or container recreate)
 #   but whose files are still on disk AND still hard-linked to the media library.
-#   These "ghost" items are safe to re-add to Transmission for continued seeding
-#   because their data is intact and their library link is already in place.
+#   These "ghost" items are safe to re-add to Transmission for continued seeding.
 #
 # HOW IT WORKS:
-#   1. Builds an exact-match hashmap of all torrent names currently known to
-#      Transmission, applying the same filename sanitization rules Transmission
-#      uses on disk (Win32 reserved chars → '_').
-#   2. Walks each configured download folder and flags items NOT found in the
-#      hashmap (i.e. missing from Transmission's session).
+#   1. Builds a hashmap of all torrent filenames in Transmission.
+#   2. Walks each configured download folder and flags items NOT found in
+#      Transmission.
 #   3. For each missing item, checks whether it still has a hard link to the
 #      media library (link count > 1). Only linked items are flagged as rescue
 #      candidates — unlinked items are left for the orphan or ghost purgers.
 #   4. Reports all rescue candidates so they can be re-added to Transmission.
-#
-# SAFETY GATES:
-#   - Only flags items with confirmed library hard links; lone disk copies are
-#     ignored and handled by other scripts.
-#   - DRY_RUN mode (default) reports candidates without taking any action.
-#   - Actual re-injection requires the original .torrent file or magnet link
-#     and is intentionally left as a manual step.
 # ==============================================================================
 
 # ==========================================
@@ -37,11 +27,11 @@ CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
 BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE" # <--- CHANGE THIS
-TR_PASS="YOUR_PASSWORD_HERE" # <--- CHANGE THIS
+TR_USER="YOUR_USERNAME_HERE"
+TR_PASS="YOUR_PASSWORD_HERE"
 
 # Source folders to inspect for ghost assets
-SOURCE_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
+TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
@@ -51,6 +41,10 @@ COL_NAME=105
 COL_SIZE=10
 COL_TOTAL=$((COL_NAME + COL_SIZE + 3))
 NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
+
+echo "=== STARTING TRANSMISSION GHOST RESCUER ==="
+echo "Dry Run Mode: $DRY_RUN"
+echo "----------------------------------------"
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -62,10 +56,6 @@ format_num() {
     printf -v "$2" "%s" "${n}${res}"
 }
 
-echo "=== STARTING TRANSMISSION GHOST-LINK RESCUER ==="
-echo "Dry Run Mode: $DRY_RUN"
-echo "----------------------------------------"
-
 AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
     AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
@@ -76,11 +66,21 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Caching active torrent list from Transmission..."
-RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1)
+echo "Fetching torrent manifest from Transmission..."
+if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
+    echo "ERROR: Failed to connect to Transmission RPC."
+    echo "Output: $RAW_MANIFEST"
+    exit 1
+fi
 
 if echo "$RAW_MANIFEST" | grep -q "401: Unauthorized"; then
     echo "ERROR: Transmission RPC authentication failed."
+    exit 1
+fi
+
+if ! echo "$RAW_MANIFEST" | grep -q "Sum:"; then
+    echo "ERROR: Transmission did not return a valid torrent list. Safety abort."
+    echo "Output: $RAW_MANIFEST"
     exit 1
 fi
 
@@ -102,13 +102,13 @@ while IFS= read -r info_line; do
     fi
 done <<< "$ALL_TORRENT_DETAILS"
 echo "Index built (${#LIVE_NAME_MAP[@]} torrents cached)."
-echo "Scanning disk shares: ${SOURCE_FOLDERS[*]}..."
+echo "Scanning disk shares: ${TARGET_FOLDERS[*]}..."
 echo "----------------------------------------"
 
 TOTAL_RESCUED_COUNT=0
 TOTAL_RESCUED_SIZE_KBYTES=0
 
-for folder in "${SOURCE_FOLDERS[@]}"; do
+for folder in "${TARGET_FOLDERS[@]}"; do
     CURRENT_SRC_DIR="${BASE_PATH}/${folder}"
     if [ ! -d "$CURRENT_SRC_DIR" ]; then continue; fi
 

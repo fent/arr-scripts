@@ -1,26 +1,25 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: DEAD TRACKER ERROR TORRENTS PURGER
+# SCRIPT DESCRIPTION: TRANSMISSION PURGE ERRORS
 # ==============================================================================
 # PURPOSE:
-# This script scans Transmission for broken, dead, or unregistered
-# torrent entries by systematically looping through every active Torrent ID in
-# your container's database.
+#   This script scans Transmission for broken, dead, or unregistered
+#   and removes the torrent from Transmission and its data.
 #
 # HOW IT WORKS:
-# 1. It extracts a list of all active numeric Torrent IDs from Transmission.
-# 2. It loops through every single ID sequentially and runs a deep 'transmission-remote -t ID --info' check.
-# 3. It scans the internal log output strictly for terms like "tracker:", "unregistered", or "not found".
-# 4. If an error is found, it calculates its exact path on your Unraid host disk.
-# 5. If the path exists inside your target shares (.tv, .movies, etc.), it commands
-#    Transmission to safely drop the session and delete the dead data blocks from disk.
+#   1. Extracts a list of all active numeric Torrent IDs from Transmission.
+#   2. Loops through every single ID and calls 'transmission-remote -t ID --info'.
+#   3. Scans the internal log output strictly for terms like "tracker:", "unregistered", or "not found".
+#   4. If an error is found, it calculates its path on your drive.
+#   5. If the path exists inside your target shares (.tv, .movies, etc.), it's
+#      flagged as an errored torrent.
+#   6. If DRY_RUN is false, it commands Transmission to drop the torrent and
+#      delete its data.
 #
-# PROTECTION GATES:
+# SAFETY GATES:
 # - Generic "error:" messages (like a slow disk spinning up or a temporary
 #   network timeout) are completely ignored to prevent false-positive deletions.
-# - It is 100% blind to what your files are named on disk, so video titles
-#   containing words like "Errors" are completely protected.
 # ==============================================================================
 
 # ==========================================
@@ -34,7 +33,7 @@ BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
 TR_USER="YOUR_USERNAME_HERE"
 TR_PASS="YOUR_PASSWORD_HERE"
 
-# Target subdirectories to audit (Excluding .music)
+# Target subdirectories to audit
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
 # Table Formatting
@@ -43,6 +42,10 @@ COL_SIZE=10
 COL_ERROR=30
 COL_TOTAL=$((COL_NAME + COL_SIZE + COL_ERROR + 6))
 NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
+
+echo "=== STARTING TRANSMISSION PURGE ERRORS ==="
+echo "Dry Run Mode: $DRY_RUN"
+echo "----------------------------------------"
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -54,11 +57,6 @@ format_num() {
     printf -v "$2" "%s" "${n}${res}"
 }
 
-echo "=== STARTING TRACKER ERROR PURGE ==="
-echo "Dry Run Mode: $DRY_RUN"
-echo "Scanning every torrent ID in the database (this will take a while)..."
-echo "----------------------------------------"
-
 AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
     AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
@@ -69,7 +67,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Verifying Transmission RPC connection..."
+echo "Fetching torrent manifest from Transmission..."
 if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
     echo "ERROR: Failed to connect to Transmission RPC."
     echo "Output: $RAW_MANIFEST"
@@ -87,7 +85,6 @@ if ! echo "$RAW_MANIFEST" | grep -q "Sum:"; then
     exit 1
 fi
 
-echo "Caching entire torrent manifest from Transmission..."
 # Extract every active numerical ID row cleanly out of Transmission's list table
 ALL_IDS=$(echo "$RAW_MANIFEST" | tail -n +2 | head -n -1 | awk '{print $1}' | tr -d '*')
 

@@ -4,19 +4,20 @@
 # SCRIPT DESCRIPTION: PLEX EAC3 CORRUPTION SCANNER
 # ==============================================================================
 # PURPOSE:
-# Scans your entire Plex library for severely corrupted EAC3 (Dolby Digital Plus)
-# audio tracks that cause the Plex EasyAudioEncoder (EAE) to hard-crash.
+#   Scans your entire Plex library for severely corrupted EAC3 (Dolby Digital Plus)
+#   audio tracks that cause the Plex EasyAudioEncoder (EAE) to hard-crash.
 #
 # HOW IT WORKS:
-# 1. Queries the Plex SQLite database to find all EAC3 files (<= 6 channels).
-# 2. Spawns an isolated instance of Plex's proprietary EAE transcoder engine.
-# 3. Feeds 50 frames of each file directly into the engine.
-# 4. If the engine spits out continuous "Cannot group in blocks of 6!" errors,
-#    the file is flagged as corrupted and safely logged to broken-eac3-list.txt
+#   1. Queries the Plex SQLite database to find all EAC3 files (<= 6 channels).
+#   2. Spawns an isolated instance of Plex's proprietary EAE transcoder engine.
+#   3. Feeds 50 frames of each file directly into the engine.
+#   4. If the engine spits out continuous "Cannot group in blocks of 6!" errors,
+#      the file is flagged as corrupted and safely logged to broken-eac3-list.txt
 #
 # USAGE:
-# Run normally: ./scan-broken-eac3.sh
-# Resume scan:  ./scan-broken-eac3.sh --continue-from 4400
+#   Run normally: ./scan-broken-eac3.sh
+#   Resume scan:  ./scan-broken-eac3.sh --continue-from 4400
+#   Scan last 24 hours: ./scan-broken-eac3.sh --recent 24
 # ==============================================================================
 
 START_AT=0
@@ -62,7 +63,7 @@ if [ -z "$PLEX_CONT" ]; then
 fi
 echo "Using Plex container: $PLEX_CONT"
 
-echo "Dynamically locating Plex database..."
+echo "Locating Plex database..."
 # 1. Check official Plex environment variable first
 APP_SUPPORT=$(docker exec "$PLEX_CONT" sh -c 'echo $PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR')
 

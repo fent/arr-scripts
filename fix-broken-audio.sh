@@ -1,7 +1,15 @@
 #!/bin/bash
 # ==============================================================================
-# Plex EAC3 Audio Fixer
-# Reads broken-eac3-list.txt, converts audio to AC3, and tells Plex to re-analyze
+# SCRIPT DESCRIPTION: FIX BROKEN AUDIO
+# ==============================================================================
+# PURPOSE:
+#   Reads broken-eac3-list.txt, converts audio to AC3, and tells Plex to re-analyze.
+#
+# HOW IT WORKS:
+#   1. Maps Plex container paths to Unraid host paths.
+#   2. Iterates over the broken files list.
+#   3. Converts the broken EAC3 audio track to AC3 using ffmpeg.
+#   4. Replaces the original file and tells Plex to scan the updated file.
 # ==============================================================================
 
 # --- CONFIGURATION ---
@@ -10,7 +18,6 @@ LIST_FILE="broken-eac3-list.txt"
 
 # PATH TRANSLATION:
 # Map your Plex container paths to your Unraid host paths.
-# You can add as many as you need (e.g., "/tv"="/mnt/user/tv")
 declare -A PATH_MAPPINGS=(
     ["/media"]="/mnt/user/downloads"
 )
@@ -21,8 +28,8 @@ if [ ! -f "$LIST_FILE" ]; then
     exit 1
 fi
 
-echo "Starting Audio Conversion Pipeline..."
-echo "--------------------------------------------------------"
+echo "=== STARTING FIX BROKEN AUDIO ==="
+echo "----------------------------------------"
 
 # Create a temporary copy to iterate over so we can safely modify the original in-place
 cp "$LIST_FILE" "${LIST_FILE}.run"

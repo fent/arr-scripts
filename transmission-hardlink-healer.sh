@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: DUPLICATE FILE HARD LINK HEALER
+# SCRIPT DESCRIPTION: TRANSMISSION HARDLINK HEALER
 # ==============================================================================
 # PURPOSE:
 #   Reclaims wasted disk space caused by Sonarr/Radarr being misconfigured to
@@ -12,23 +12,17 @@
 #   so both paths point to the same inode and only one copy occupies disk space.
 #
 # HOW IT WORKS:
-#   1. Builds an in-memory size-keyed index of every file in your library folders.
+#   1. Builds an index of every file in library folders with the file's size.
 #   2. Walks each configured seeding folder, skipping items not tracked by
-#      Transmission and files that are already hard-linked (link count > 1).
+#      Transmission and files that are already hard-linked.
 #   3. For each unlinked file, finds size-matching library candidates and
-#      confirms the match with a fast xxh128 hash of the first+last 10 MB.
-#   4. On a confirmed match, atomically replaces the seeding file with a hard
+#      confirms the match with a byte by byte comparison using cmp.
+#   4. If DRY_RUN is false, atomically replaces the seeding file with a hard
 #      link to the library file, reclaiming the duplicate copy's disk space.
 #
 # OPTIMIZATIONS:
 #   - De-duplicates library paths shared across multiple source folders.
 #   - Persists a verified-inode cache across runs to skip already-confirmed files.
-#   - Only reads 20 MB per file pair for content verification (head + tail).
-#
-# SAFETY GATES:
-#   - DRY_RUN mode (default) shows all planned changes without touching anything.
-#   - Hard link creation is guarded: if ln fails, the script exits immediately
-#     rather than leaving the seeding file deleted.
 # ==============================================================================
 
 # ==========================================
@@ -39,23 +33,13 @@ CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
 BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE" # <--- CHANGE THIS
-TR_PASS="YOUR_PASSWORD_HERE" # <--- CHANGE THIS
+TR_USER="YOUR_USERNAME_HERE"
+TR_PASS="YOUR_PASSWORD_HERE"
 
 # -----------------------------------------------------------------
 # 1:1 FOLDER MAPPINGS (Configure your matching pairs here)
 # Format: ["SOURCE_SEED_FOLDER"]="DESTINATION_LIBRARY_PATH"
 # -----------------------------------------------------------------
-
-# Fast pure-bash function to format numbers with commas
-format_num() {
-    local n=$1 res=""
-    while [ ${#n} -gt 3 ]; do
-        res=",${n: -3}${res}"
-        n="${n:0:${#n}-3}"
-    done
-    printf -v "$2" "%s" "${n}${res}"
-}
 
 declare -A FOLDER_MAP
 FOLDER_MAP[".tv"]="${BASE_PATH}/TV"
@@ -73,9 +57,19 @@ STATE_DIR="${SCRIPT_DIR}/transmission_healer_state"
 VERIFIED_CACHE="${STATE_DIR}/verified_inodes.cache"
 mkdir -p "$STATE_DIR"
 
-echo "=== STARTING DUPLICATE FILE HARD LINK HEALER ==="
+echo "=== STARTING TRANSMISSION HARDLINK HEALER ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
+
+# Fast pure-bash function to format numbers with commas
+format_num() {
+    local n=$1 res=""
+    while [ ${#n} -gt 3 ]; do
+        res=",${n: -3}${res}"
+        n="${n:0:${#n}-3}"
+    done
+    printf -v "$2" "%s" "${n}${res}"
+}
 
 AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
@@ -87,7 +81,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Verifying Transmission RPC connection..."
+echo "Fetching torrent manifest from Transmission..."
 if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
     echo "ERROR: Failed to connect to Transmission RPC."
     echo "Output: $RAW_MANIFEST"
@@ -104,8 +98,6 @@ if ! echo "$RAW_MANIFEST" | grep -q "Sum:"; then
     echo "Output: $RAW_MANIFEST"
     exit 1
 fi
-
-echo "Caching entire torrent manifest from Transmission..."
 
 
 # Load previously verified inodes into memory

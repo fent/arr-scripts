@@ -4,24 +4,18 @@
 # SCRIPT DESCRIPTION: TAUTULLI EAC3 TRANSCODE AUDITOR
 # ==============================================================================
 # PURPOSE:
-# Analyzes your Tautulli database to determine exactly which users and devices
-# are vulnerable to Plex's EAC3 (Dolby Digital Plus) transcoder crashes.
+#   Analyzes your Tautulli database to determine exactly which users and devices
+#   are vulnerable to Plex's EAC3 transcoder crashes.
 #
 # HOW IT WORKS:
-# 1. Dynamically locates your running Tautulli docker container.
-# 2. Connects to the tautulli.db SQLite database directly inside the container
-#    (or falls back to locating the host path if sqlite3 is missing inside).
-# 3. Cross-references historical play sessions with media codec data.
-# 4. Outputs a clean table showing how many times each user played an EAC3 file,
-#    and whether their specific device forced an audio transcode (vulnerable)
-#    or natively Direct Played the audio (safe).
+#   1. Locates your running Tautulli docker container.
+#   2. Cross-references historical play sessions with media codec data.
+#   3. Outputs a table showing how many times each user played an EAC3 file,
+#      and whether their device forced a vulnerable audio transcode or Direct Played.
 # ==============================================================================
 
-echo "====================================================================="
-echo "Tautulli EAC3 Transcode Audit"
-echo "====================================================================="
-echo "Analyzing how different users and devices handle EAC3 audio tracks..."
-echo ""
+echo "=== STARTING ANALYZE TAUTULLI ==="
+echo "----------------------------------------"
 
 # Find the Tautulli container dynamically
 TAUTULLI_CONT=$(docker ps --format '{{.Names}}' | grep -i tautulli | head -n 1)

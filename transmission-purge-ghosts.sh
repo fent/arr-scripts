@@ -1,28 +1,18 @@
 #!/bin/bash
 
 # ==============================================================================
-# SCRIPT DESCRIPTION: UNREFERENCED GHOST FILE PURGE
+# SCRIPT DESCRIPTION: TRANSMISSION PURGE GHOSTS
 # ==============================================================================
 # PURPOSE:
-# This script identifies and deletes unreferenced "ghost" files and folders
-# that are taking up space on your hard drives but do not exist in Transmission
-# nor are hardlinked to your media folders.
+#   This script identifies and deletes unreferenced "ghost" files and folders
+#   that are taking up space on your drives but do not exist in Transmission
+#   nor are hardlinked to your media folders.
 #
 # HOW IT WORKS:
-# 1. It pulls Transmission's complete database metadata block using '-t all --info'.
-# 2. It parses the raw data rows underneath the 'File(s):' block array. This block
-#    contains the literal, physical root directory or file name Transmission created
-#    on your disk, rather than the cosmetic display title.
-# 3. It loads these exact filename strings directly into a native Bash Hashmap.
-# 4. It checks your physical download directories on disk. If an item on your disk
-#    does not exist as a key inside the memory hashmap, it is flagged as a ghost.
-#
-# FOREIGN CHARACTER, COLON, & ELLIPSIS IMMUNITY:
-# Because it maps the literal disk filename tracked by Transmission instead of the
-# torrent display name, this version is entirely immune to string mismatches.
-# - Transmission's automatic translation of colons (:) to underscores (_) on disk is natively caught.
-# - Foreign character sets (Japanese Kanji, Cyrillic, etc.) match perfectly down to the byte.
-# - Long names that are truncated with '...' on summary screens are completely preserved.
+#   1. Builds a hashmap of all torrent filenames in Transmission.
+#   2. It checks your download folders on disk. If an item on your disk
+#      does not exist as in the hashmap, it is flagged as a ghost.
+#   3. If DRY_RUN is false, it deletes the match.
 # ==============================================================================
 
 # ==========================================
@@ -36,7 +26,7 @@ BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
 TR_USER="YOUR_USERNAME_HERE"
 TR_PASS="YOUR_PASSWORD_HERE"
 
-# Target subdirectories to audit (Excluding .music)
+# Target subdirectories to audit
 TARGET_FOLDERS=(".tv" ".tv-imported" ".tvfourk" ".movies" ".moviesfourk")
 
 # Table Formatting
@@ -44,6 +34,10 @@ COL_NAME=105
 COL_SIZE=10
 COL_TOTAL=$((COL_NAME + COL_SIZE + 3))
 NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
+
+echo "=== STARTING TRANSMISSION PURGE GHOSTS ==="
+echo "Dry Run Mode: $DRY_RUN"
+echo "----------------------------------------"
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -55,10 +49,6 @@ format_num() {
     printf -v "$2" "%s" "${n}${res}"
 }
 
-echo "=== STARTING GHOST DATA PURGER ==="
-echo "Dry Run Mode: $DRY_RUN"
-echo "----------------------------------------"
-
 AUTH_ARGS=()
 if [ -n "$TR_USER" ] && [ -n "$TR_PASS" ]; then
     AUTH_ARGS=(--auth "${TR_USER}:${TR_PASS}")
@@ -68,7 +58,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     exit 1
 fi
 
-echo "Verifying Transmission RPC connection..."
+echo "Fetching torrent manifest from Transmission..."
 if ! RAW_MANIFEST=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" --list 2>&1); then
     echo "ERROR: Failed to connect to Transmission RPC."
     echo "Output: $RAW_MANIFEST"
@@ -89,7 +79,6 @@ fi
 
 echo "Pulling deep metadata sheets for all active torrents..."
 ALL_TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t all --info 2>&1)
-
 
 # -----------------------------------------------------------------
 # POPULATE HASHMAP WITH LITERAL DISK PAYLOAD PATH NAMES

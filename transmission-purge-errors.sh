@@ -12,7 +12,7 @@
 #   2. Loops through every single ID and calls 'transmission-remote -t ID --info'.
 #   3. Scans the internal log output strictly for terms like "tracker:", "unregistered", or "not found".
 #   4. If an error is found, it calculates its path on your drive.
-#   5. If the path exists inside your target shares (.tv, .movies, etc.), it's
+#   5. If the path exists inside your target shares (tv, movies, etc.), it's
 #      flagged as an errored torrent.
 #   6. If DRY_RUN is false, it commands Transmission to drop the torrent and
 #      delete its data.
@@ -25,9 +25,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                        # Set to 'false' to actively delete from Transmission
-CONTAINER_NAME="transmission"       # Name of your Transmission Docker container
-DOWNLOADS_DIR="/mnt/user/downloads" # Parent path where your source folders live
+DRY_RUN=true                             # Set to 'false' to actively delete from Transmission
+CONTAINER_NAME="transmission"            # Name of your Transmission Docker container
+DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"

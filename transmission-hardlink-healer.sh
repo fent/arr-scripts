@@ -31,8 +31,8 @@
 DRY_RUN=true                  # Set to 'false' to actively fix and create hard links
 CONTAINER_NAME="transmission" # Name of your Transmission Docker container
 
-DOWNLOADS_DIR="/mnt/user/downloads" # Parent path where your source folders live
-MEDIA_DIR="/mnt/user/downloads"     # Parent path where your media libraries live
+DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
+MEDIA_DIR="/mnt/user/data/media"         # Parent path where your media libraries live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -44,11 +44,11 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # -----------------------------------------------------------------
 
 declare -A FOLDER_MAP
-FOLDER_MAP["tv"]="${MEDIA_DIR}/TV"
-FOLDER_MAP["tv-imported"]="${MEDIA_DIR}/TV"
-FOLDER_MAP["tv-fourk"]="${MEDIA_DIR}/TV4k"
-FOLDER_MAP["movies"]="${MEDIA_DIR}/Movies"
-FOLDER_MAP["movies-fourk"]="${MEDIA_DIR}/Movies4k"
+FOLDER_MAP["tv"]="${MEDIA_DIR}/tv"
+FOLDER_MAP["tv-imported"]="${MEDIA_DIR}/tv"
+FOLDER_MAP["tv-fourk"]="${MEDIA_DIR}/tv-4k"
+FOLDER_MAP["movies"]="${MEDIA_DIR}/movies"
+FOLDER_MAP["movies-fourk"]="${MEDIA_DIR}/movies-4k"
 
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"

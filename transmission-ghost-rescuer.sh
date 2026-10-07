@@ -22,9 +22,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                    # Set to 'false' to actively resume/re-inject into Transmission
-CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
+DRY_RUN=true                        # Set to 'false' to actively resume/re-inject into Transmission
+CONTAINER_NAME="transmission"       # Name of your Transmission Docker container
+DOWNLOADS_DIR="/mnt/user/downloads" # Parent path where your shares live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -109,7 +109,7 @@ TOTAL_RESCUED_COUNT=0
 TOTAL_RESCUED_SIZE_KBYTES=0
 
 for folder in "${TARGET_FOLDERS[@]}"; do
-    CURRENT_SRC_DIR="${BASE_PATH}/${folder}"
+    CURRENT_SRC_DIR="${DOWNLOADS_DIR}/${folder}"
     if [ ! -d "$CURRENT_SRC_DIR" ]; then continue; fi
 
     echo "Auditing folder for link-connected ghosts: $CURRENT_SRC_DIR"

@@ -25,9 +25,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                    # Set to 'false' to actively delete from Transmission
-CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
+DRY_RUN=true                        # Set to 'false' to actively delete from Transmission
+CONTAINER_NAME="transmission"       # Name of your Transmission Docker container
+DOWNLOADS_DIR="/mnt/user/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -126,7 +126,7 @@ for tid in $ALL_IDS; do
 
             if [ "$MATCH_FOLDER" = false ]; then continue; fi
 
-            ITEM_PATH="${BASE_PATH}/${SUB_FOLDER}/${TORRENT_NAME}"
+            ITEM_PATH="${DOWNLOADS_DIR}/${SUB_FOLDER}/${TORRENT_NAME}"
 
             if [ -e "$ITEM_PATH" ]; then
                 ITEM_KBYTES=$(du -s "$ITEM_PATH" | awk '{print $1}')

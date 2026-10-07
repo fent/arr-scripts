@@ -18,9 +18,9 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                    # Set to 'false' to actively delete files from your disk
-CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads" # Parent path where your source folders live
+DRY_RUN=true                        # Set to 'false' to actively delete files from your disk
+CONTAINER_NAME="transmission"       # Name of your Transmission Docker container
+DOWNLOADS_DIR="/mnt/user/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -108,7 +108,7 @@ TOTAL_UNREFERENCED_KBYTES=0
 UNREF_COUNT=0
 
 for folder in "${TARGET_FOLDERS[@]}"; do
-    CURRENT_DIR="${BASE_PATH}/${folder}"
+    CURRENT_DIR="${DOWNLOADS_DIR}/${folder}"
     if [ ! -d "$CURRENT_DIR" ]; then continue; fi
 
     echo "Scanning disk share: $CURRENT_DIR"

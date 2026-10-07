@@ -28,9 +28,11 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                    # Set to 'false' to actively fix and create hard links
-CONTAINER_NAME="transmission"   # Name of your Transmission Docker container
-BASE_PATH="/mnt/user/downloads" # Parent path where your shares live
+DRY_RUN=true                  # Set to 'false' to actively fix and create hard links
+CONTAINER_NAME="transmission" # Name of your Transmission Docker container
+
+DOWNLOADS_DIR="/mnt/user/downloads" # Parent path where your source folders live
+MEDIA_DIR="/mnt/user/downloads"     # Parent path where your media libraries live
 
 # Transmission Credentials
 TR_USER="YOUR_USERNAME_HERE"
@@ -42,11 +44,11 @@ TR_PASS="YOUR_PASSWORD_HERE"
 # -----------------------------------------------------------------
 
 declare -A FOLDER_MAP
-FOLDER_MAP["tv"]="${BASE_PATH}/TV"
-FOLDER_MAP["tv-imported"]="${BASE_PATH}/TV"
-FOLDER_MAP["tv-fourk"]="${BASE_PATH}/TV4k"
-FOLDER_MAP["movies"]="${BASE_PATH}/Movies"
-FOLDER_MAP["movies-fourk"]="${BASE_PATH}/Movies4k"
+FOLDER_MAP["tv"]="${MEDIA_DIR}/TV"
+FOLDER_MAP["tv-imported"]="${MEDIA_DIR}/TV"
+FOLDER_MAP["tv-fourk"]="${MEDIA_DIR}/TV4k"
+FOLDER_MAP["movies"]="${MEDIA_DIR}/Movies"
+FOLDER_MAP["movies-fourk"]="${MEDIA_DIR}/Movies4k"
 
 # Media Extensions Filter
 MEDIA_EXTS="mkv|mp4|avi|mov|wmv|flv|webm|ts|m4v"
@@ -144,7 +146,7 @@ TOTAL_SPACE_SAVED_KBYTES=0
 TOTAL_ITEMS_SCANNED=0
 
 for folder in $(echo "${!FOLDER_MAP[@]}" | tr ' ' '\n' | sort); do
-    CURRENT_SRC_DIR="${BASE_PATH}/${folder}"
+    CURRENT_SRC_DIR="${DOWNLOADS_DIR}/${folder}"
     if [ ! -d "$CURRENT_SRC_DIR" ]; then continue; fi
 
     echo "Scanning seeding paths in: $CURRENT_SRC_DIR"

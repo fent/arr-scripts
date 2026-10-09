@@ -103,7 +103,7 @@ for tid in $ALL_IDS; do
         TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null < /dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
-        TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker:|unregistered|not found" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker gave an error:|unregistered|not found|deleted" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
         # Strip the useless hardcoded CLI prefix to save table space
         TRACKER_ERROR_MSG=$(echo "$TRACKER_ERROR_MSG" | sed -E 's/^(Tracker gave an error: |Error: |Tracker: )//i')

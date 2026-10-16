@@ -45,7 +45,6 @@ TR_PASS="YOUR_PASSWORD_HERE"
 
 declare -A FOLDER_MAP
 FOLDER_MAP["tv"]="${MEDIA_DIR}/tv"
-FOLDER_MAP["tv-imported"]="${MEDIA_DIR}/tv"
 FOLDER_MAP["tv-fourk"]="${MEDIA_DIR}/tv-4k"
 FOLDER_MAP["movies"]="${MEDIA_DIR}/movies"
 FOLDER_MAP["movies-fourk"]="${MEDIA_DIR}/movies-4k"

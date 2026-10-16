@@ -30,7 +30,7 @@ TR_USER="YOUR_USERNAME_HERE"
 TR_PASS="YOUR_PASSWORD_HERE"
 
 # Target subdirectories to audit
-TARGET_FOLDERS=("tv" "tv-imported" "tv-fourk" "movies" "movies-fourk")
+TARGET_FOLDERS=("tv" "tv-fourk" "movies" "movies-fourk")
 
 # Seeding Thresholds (Meeting EITHER parameter triggers deletion)
 MIN_SEEDING_DAYS=30

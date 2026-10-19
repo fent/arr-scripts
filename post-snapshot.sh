@@ -2,6 +2,7 @@
 
 # Post-Snapshot Hook: Restart containers in Docker tab order and respect startup delays
 
+# Reads stopped containers and delays recorded by pre-snapshot.sh.
 STATE_FILE="${STATE_FILE:-/tmp/backup_running_containers.state}"
 
 set -euo pipefail
@@ -14,7 +15,7 @@ fi
 echo "Restarting Docker containers..."
 while IFS=' ' read -r container wait_time || [ -n "$container" ]; do
     [ -z "$container" ] && continue
-    echo "Starting: $container"
+    echo "Starting $container"
     docker start "$container" > /dev/null
 
     if [ -n "$wait_time" ] && [ "$wait_time" -gt 0 ] 2> /dev/null; then

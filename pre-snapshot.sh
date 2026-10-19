@@ -3,14 +3,26 @@
 # Pre-Snapshot Hook: Gracefully stop stateful containers in reverse Docker tab order
 # to ensure database and appdata consistency before snapshotting.
 
-set -euo pipefail
+# How long to wait before forcing a container to stop.
+STOP_TIMEOUT="${DOCKER_STOP_TIMEOUT:-60}"
 
+# Will only stop containers with a mount pointing to this.
+TARGET_MOUNT_KEYWORD="${TARGET_MOUNT_KEYWORD:-appdata}"
+
+# Any containers you want to ignore, space separated.
+IGNORE_CONTAINERS="${IGNORE_CONTAINERS:-}"
+
+# The container start order. This script will stop containers in reverse order,
+# the post-snapshot script will resume containers in defined order.
+CONTAINER_ORDER="${CONTAINER_ORDER:-}"
+
+# If the above aren't defined, the script tries to guess where config may
+# reside, falling back to common system paths.
 STATE_FILE="${STATE_FILE:-/tmp/backup_running_containers.state}"
 USERPREFS="${USERPREFS:-/boot/config/plugins/dockerMan/userprefs.cfg}"
 AUTOSTART="${AUTOSTART:-/var/lib/docker/unraid-autostart}"
-STOP_TIMEOUT="${DOCKER_STOP_TIMEOUT:-60}"
-TARGET_MOUNT_KEYWORD="${TARGET_MOUNT_KEYWORD:-appdata}"
-IGNORE_CONTAINERS="${IGNORE_CONTAINERS:-}"
+
+set -euo pipefail
 
 rm -f "$STATE_FILE"
 

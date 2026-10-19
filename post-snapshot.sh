@@ -2,9 +2,9 @@
 
 # Post-Snapshot Hook: Restart containers in Docker tab order and respect startup delays
 
-set -euo pipefail
-
 STATE_FILE="${STATE_FILE:-/tmp/backup_running_containers.state}"
+
+set -euo pipefail
 
 if [ ! -f "$STATE_FILE" ]; then
     echo "No state file found at $STATE_FILE. Containers were either not stopped or the file was deleted."

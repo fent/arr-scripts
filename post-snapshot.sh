@@ -4,10 +4,10 @@
 
 set -euo pipefail
 
-STATE_FILE="/boot/config/plugins/buddybackup/hooks/running_containers.state"
+STATE_FILE="${STATE_FILE:-/tmp/buddybackup_running_containers.state}"
 
 if [ ! -f "$STATE_FILE" ]; then
-    echo "No state file found. Containers were either not stopped or the file was deleted."
+    echo "No state file found at $STATE_FILE. Containers were either not stopped or the file was deleted."
     exit 0
 fi
 

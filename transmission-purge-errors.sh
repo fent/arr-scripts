@@ -192,7 +192,7 @@ fi
 if [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
     # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
-    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2>/dev/null; then
         if [ "$DRY_RUN" = true ]; then
             format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
             /usr/local/emhttp/webGui/scripts/notify -i warning -s "Transmission Errors (DRY RUN)" -d "Found $TRACKER_ERR_COUNT_FMT broken torrents. Would reclaim $HUMAN_ERROR_SIZE."

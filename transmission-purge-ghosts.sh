@@ -178,7 +178,7 @@ fi
 if [ "$UNREF_COUNT" -gt 0 ]; then
     # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
-    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2>/dev/null; then
         if [ "$DRY_RUN" = true ]; then
             format_num "$UNREF_COUNT" UNREF_COUNT_FMT
             /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts (DRY RUN)" -d "Found $UNREF_COUNT_FMT ghost folders. Would reclaim $HUMAN_UNREF_SIZE."

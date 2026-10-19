@@ -278,7 +278,7 @@ echo "========================================"
 if [ "$TOTAL_LINKS_HEALED" -gt 0 ]; then
     # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
-    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ]; then
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2>/dev/null; then
         if [ "$DRY_RUN" = true ]; then
             format_num "$TOTAL_LINKS_HEALED" TOTAL_LINKS_HEALED_FMT
             /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Hardlinks Healed (DRY RUN)" -d "Found $TOTAL_LINKS_HEALED_FMT unlinked files. Would reclaim $HUMAN_SAVED_SIZE."

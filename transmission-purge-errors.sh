@@ -10,7 +10,7 @@
 # HOW IT WORKS:
 #   1. Extracts a list of all active numeric Torrent IDs from Transmission.
 #   2. Loops through every single ID and calls 'transmission-remote -t ID --info'.
-#   3. Scans the internal log output strictly for terms like "tracker:", "unregistered", or "not found".
+#   3. Scans tracker error output strictly for terms like "unregistered", "not found", or "deleted".
 #   4. If an error is found, it calculates its path on your drive.
 #   5. If the path exists inside your target shares (tv, movies, etc.), it's
 #      flagged as an errored torrent.
@@ -19,7 +19,8 @@
 #
 # SAFETY GATES:
 # - Generic "error:" messages (like a slow disk spinning up or a temporary
-#   network timeout) are completely ignored to prevent false-positive deletions.
+#   network timeout) and temporary tracker messages (such as maintenance or
+#   temporary downtime) are ignored to prevent false-positive deletions.
 # ==============================================================================
 
 # ==========================================
@@ -110,7 +111,7 @@ for tid in $ALL_IDS; do
         TORRENT_DETAILS=$(docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --info 2> /dev/null < /dev/null)
 
         # Check strictly for explicit tracking registration and status connectivity failures
-        TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker gave an error:|unregistered|not found|deleted" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        TRACKER_ERROR_MSG=$(echo "$TORRENT_DETAILS" | grep -E -i "tracker gave an error:.*(unregistered|not registered|not found|deleted|not exist|pruned)" | head -n 1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
         # Strip the useless hardcoded CLI prefix to save table space
         TRACKER_ERROR_MSG=$(echo "$TRACKER_ERROR_MSG" | sed -E 's/^(Tracker gave an error: |Error: |Tracker: )//i')

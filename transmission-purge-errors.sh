@@ -26,6 +26,7 @@
 # CONFIGURATION
 # ==========================================
 DRY_RUN=true                             # Set to 'false' to actively delete from Transmission
+INTERACTIVE=true                         # If true and running in a terminal, prompts for confirmation before deleting each item
 CONTAINER_NAME="transmission"            # Name of the Transmission Docker container
 DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
 
@@ -46,6 +47,12 @@ NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
 echo "=== STARTING TRANSMISSION PURGE ERRORS ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
+
+# Save original stdin (fd 3) so interactive prompts can read from terminal even inside redirected loops
+exec 3<&0
+trap 'exec 3<&-' EXIT
+PURGED_COUNT=0
+PURGED_KBYTES=0
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -165,8 +172,31 @@ for tid in $ALL_IDS; do
                 printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE" "$err_width" "$disp_err" | sed "s/  /${NBSP}${NBSP}/g"
 
                 if [ "$DRY_RUN" = false ]; then
-                    docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
-                    rm -rf "$ITEM_PATH"
+                    should_delete=true
+                    if [ "$INTERACTIVE" = true ] && [ -t 3 ]; then
+                        read -r -p "  ▸ Delete this errored torrent? [y/N/q]: " choice <&3
+                        case "$choice" in
+                        [yY] | [yY][eE][sS])
+                            should_delete=true
+                            ;;
+                        [qQ] | [qQ][uU][iI][tT])
+                            echo "  ▸ Aborting."
+                            should_delete=false
+                            break
+                            ;;
+                        *)
+                            echo "  ▸ Skipped."
+                            should_delete=false
+                            ;;
+                        esac
+                    fi
+
+                    if [ "$should_delete" = true ]; then
+                        docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
+                        rm -rf "$ITEM_PATH"
+                        PURGED_COUNT=$((PURGED_COUNT + 1))
+                        PURGED_KBYTES=$((PURGED_KBYTES + ITEM_KBYTES))
+                    fi
                 fi
             fi
         fi
@@ -179,14 +209,20 @@ fi
 
 # Convert exact summaries to clean, human-readable strings
 HUMAN_ERROR_SIZE=$(awk -v kb="$TOTAL_TRACKER_ERR_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
+HUMAN_PURGED_SIZE=$(awk -v kb="$PURGED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
 echo "----------------------------------------"
 if [ "$DRY_RUN" = true ]; then
     format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
     echo "=== SUMMARY: [DRY-RUN] $TRACKER_ERR_COUNT_FMT broken torrents found, would reclaim $HUMAN_ERROR_SIZE ==="
 else
+    format_num "$PURGED_COUNT" PURGED_COUNT_FMT
     format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
-    echo "=== SUMMARY: Purged $TRACKER_ERR_COUNT_FMT broken torrents, reclaimed $HUMAN_ERROR_SIZE ==="
+    if [ "$PURGED_COUNT" -eq "$TRACKER_ERR_COUNT" ]; then
+        echo "=== SUMMARY: Purged $PURGED_COUNT_FMT broken torrents, reclaimed $HUMAN_PURGED_SIZE ==="
+    else
+        echo "=== SUMMARY: Purged $PURGED_COUNT_FMT of $TRACKER_ERR_COUNT_FMT broken torrents, reclaimed $HUMAN_PURGED_SIZE ==="
+    fi
 fi
 
 if [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
@@ -196,9 +232,9 @@ if [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
         if [ "$DRY_RUN" = true ]; then
             format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
             /usr/local/emhttp/webGui/scripts/notify -i warning -s "Transmission Errors (DRY RUN)" -d "Found $TRACKER_ERR_COUNT_FMT broken torrents. Would reclaim $HUMAN_ERROR_SIZE."
-        else
-            format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Errors Purged" -d "Successfully purged $TRACKER_ERR_COUNT_FMT broken torrents and reclaimed $HUMAN_ERROR_SIZE."
+        elif [ "$PURGED_COUNT" -gt 0 ]; then
+            format_num "$PURGED_COUNT" PURGED_COUNT_FMT
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Errors Purged" -d "Successfully purged $PURGED_COUNT_FMT broken torrents and reclaimed $HUMAN_PURGED_SIZE."
         fi
     fi
 fi

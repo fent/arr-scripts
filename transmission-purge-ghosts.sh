@@ -19,6 +19,7 @@
 # CONFIGURATION
 # ==========================================
 DRY_RUN=true                             # Set to 'false' to actively delete files from your disk
+INTERACTIVE=true                         # If true and running in a terminal, prompts for confirmation before deleting each item
 CONTAINER_NAME="transmission"            # Name of the Transmission Docker container
 DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
 
@@ -38,6 +39,13 @@ NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
 echo "=== STARTING TRANSMISSION PURGE GHOSTS ==="
 echo "Dry Run Mode: $DRY_RUN"
 echo "----------------------------------------"
+
+# Save original stdin (fd 3) so interactive prompts can read from terminal even inside redirected loops
+exec 3<&0
+trap 'exec 3<&-' EXIT
+ABORT_PURGE=false
+PURGED_COUNT=0
+PURGED_KBYTES=0
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -155,7 +163,31 @@ for folder in "${TARGET_FOLDERS[@]}"; do
             printf "%-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$ITEM_HUMAN_SIZE" | sed "s/  /${NBSP}${NBSP}/g"
 
             if [ "$DRY_RUN" = false ]; then
-                rm -rf "$item_path"
+                should_delete=true
+                if [ "$INTERACTIVE" = true ] && [ -t 3 ]; then
+                    read -r -p "  ▸ Delete this ghost? [y/N/q]: " choice <&3
+                    case "$choice" in
+                    [yY] | [yY][eE][sS])
+                        should_delete=true
+                        ;;
+                    [qQ] | [qQ][uU][iI][tT])
+                        echo "  ▸ Aborting."
+                        should_delete=false
+                        ABORT_PURGE=true
+                        break
+                        ;;
+                    *)
+                        echo "  ▸ Skipped."
+                        should_delete=false
+                        ;;
+                    esac
+                fi
+
+                if [ "$should_delete" = true ]; then
+                    rm -rf "$item_path"
+                    PURGED_COUNT=$((PURGED_COUNT + 1))
+                    PURGED_KBYTES=$((PURGED_KBYTES + ITEM_KBYTES))
+                fi
             fi
         fi
     done
@@ -163,28 +195,36 @@ for folder in "${TARGET_FOLDERS[@]}"; do
     if [ "$HEADER_PRINTED" = true ]; then
         printf '%*s\n' "$COL_TOTAL" "" | tr ' ' '-'
     fi
+
+    if [ "$ABORT_PURGE" = true ]; then
+        break
+    fi
 done
 
 HUMAN_UNREF_SIZE=$(awk -v kb="$TOTAL_UNREFERENCED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
+HUMAN_PURGED_SIZE=$(awk -v kb="$PURGED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 echo "----------------------------------------"
 if [ "$DRY_RUN" = true ]; then
     format_num "$UNREF_COUNT" UNREF_COUNT_FMT
     echo "=== SUMMARY: [DRY-RUN] $UNREF_COUNT_FMT ghost folders found, would reclaim $HUMAN_UNREF_SIZE ==="
 else
+    format_num "$PURGED_COUNT" PURGED_COUNT_FMT
     format_num "$UNREF_COUNT" UNREF_COUNT_FMT
-    echo "=== SUMMARY: Purged $UNREF_COUNT_FMT ghost folders, reclaimed $HUMAN_UNREF_SIZE ==="
+    if [ "$PURGED_COUNT" -eq "$UNREF_COUNT" ]; then
+        echo "=== SUMMARY: Purged $PURGED_COUNT_FMT ghost folders, reclaimed $HUMAN_PURGED_SIZE ==="
+    else
+        echo "=== SUMMARY: Purged $PURGED_COUNT_FMT of $UNREF_COUNT_FMT ghost folders, reclaimed $HUMAN_PURGED_SIZE ==="
+    fi
 fi
 
-if [ "$UNREF_COUNT" -gt 0 ]; then
-    # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
-    # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
-    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2> /dev/null; then
-        if [ "$DRY_RUN" = true ]; then
-            format_num "$UNREF_COUNT" UNREF_COUNT_FMT
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts (DRY RUN)" -d "Found $UNREF_COUNT_FMT ghost folders. Would reclaim $HUMAN_UNREF_SIZE."
-        else
-            format_num "$UNREF_COUNT" UNREF_COUNT_FMT
-            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts Purged" -d "Successfully purged $UNREF_COUNT_FMT ghost folders and reclaimed $HUMAN_UNREF_SIZE."
-        fi
+# Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
+# The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
+if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2> /dev/null; then
+    if [ "$DRY_RUN" = true ] && [ "$UNREF_COUNT" -gt 0 ]; then
+        format_num "$UNREF_COUNT" UNREF_COUNT_FMT
+        /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts (DRY RUN)" -d "Found $UNREF_COUNT_FMT ghost folders. Would reclaim $HUMAN_UNREF_SIZE."
+    elif [ "$DRY_RUN" = false ] && [ "$PURGED_COUNT" -gt 0 ]; then
+        format_num "$PURGED_COUNT" PURGED_COUNT_FMT
+        /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts Purged" -d "Successfully purged $PURGED_COUNT_FMT ghost folders and reclaimed $HUMAN_PURGED_SIZE."
     fi
 fi

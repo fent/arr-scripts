@@ -14,11 +14,16 @@
 #      and whether their device forced a vulnerable audio transcode or Direct Played.
 # ==============================================================================
 
+# ==========================================
+# CONFIGURATION
+# ==========================================
+CONTAINER_NAME="tautulli" # Name of the Tautulli Docker container
+
 echo "=== STARTING ANALYZE TAUTULLI ==="
 echo "----------------------------------------"
 
 # Find the Tautulli container dynamically
-TAUTULLI_CONT=$(docker ps --format '{{.Names}}' | grep -i tautulli | head -n 1)
+TAUTULLI_CONT=$(docker ps --format '{{.Names}}' | grep -i "$CONTAINER_NAME" | head -n 1)
 
 if [ -z "$TAUTULLI_CONT" ]; then
     echo "Error: Could not find a Tautulli docker container running."

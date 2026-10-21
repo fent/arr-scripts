@@ -23,7 +23,7 @@
 # CONFIGURATION
 # ==========================================
 DRY_RUN=true                             # Set to 'false' to actively resume/re-inject into Transmission
-CONTAINER_NAME="transmission"            # Name of your Transmission Docker container
+CONTAINER_NAME="transmission"            # Name of the Transmission Docker container
 DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your shares live
 
 # Transmission Credentials

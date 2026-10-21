@@ -19,7 +19,7 @@
 # CONFIGURATION
 # ==========================================
 DRY_RUN=true                             # Set to 'false' to actively delete files from your disk
-CONTAINER_NAME="transmission"            # Name of your Transmission Docker container
+CONTAINER_NAME="transmission"            # Name of the Transmission Docker container
 DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
@@ -178,7 +178,7 @@ fi
 if [ "$UNREF_COUNT" -gt 0 ]; then
     # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
-    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2>/dev/null; then
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2> /dev/null; then
         if [ "$DRY_RUN" = true ]; then
             format_num "$UNREF_COUNT" UNREF_COUNT_FMT
             /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Ghosts (DRY RUN)" -d "Found $UNREF_COUNT_FMT ghost folders. Would reclaim $HUMAN_UNREF_SIZE."

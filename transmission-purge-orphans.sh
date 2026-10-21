@@ -22,7 +22,7 @@
 # CONFIGURATION
 # ==========================================
 DRY_RUN=true                             # Set to 'false' to actively delete from Transmission
-CONTAINER_NAME="transmission"            # Name of your Transmission Docker container
+CONTAINER_NAME="transmission"            # Name of the Transmission Docker container
 DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
 
 # Transmission Credentials
@@ -230,7 +230,7 @@ if [ "$ORPHAN_COUNT" -gt 0 ]; then
 
     # Trigger Unraid WebGUI Notification ONLY if running in the background (e.g. User Scripts plugin)
     # The [ ! -t 1 ] check ensures notifications are skipped if a user runs it manually in the shell/terminal.
-    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2>/dev/null; then
+    if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2> /dev/null; then
         if [ "$DRY_RUN" = true ]; then
             format_num "$ORPHAN_COUNT" ORPHAN_COUNT_FMT
             /usr/local/emhttp/webGui/scripts/notify -i normal -s "Transmission Orphans (DRY RUN)" -d "Found $ORPHAN_COUNT_FMT orphans. Would reclaim $HUMAN_ORPHAN_SIZE."

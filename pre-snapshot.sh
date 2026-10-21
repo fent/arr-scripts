@@ -3,6 +3,9 @@
 # Pre-Snapshot Hook: Gracefully stop stateful containers in reverse Docker tab order
 # to ensure database and appdata consistency before snapshotting.
 
+# Set to 'true' to simulate without stopping containers.
+DRY_RUN="${DRY_RUN:-false}"
+
 # How long to wait before forcing a container to stop.
 STOP_TIMEOUT="${DOCKER_STOP_TIMEOUT:-}"
 
@@ -26,6 +29,10 @@ USERPREFS="${USERPREFS:-/boot/config/plugins/dockerMan/userprefs.cfg}"
 AUTOSTART="${AUTOSTART:-/var/lib/docker/unraid-autostart}"
 
 set -euo pipefail
+
+if [ "$DRY_RUN" = true ]; then
+    echo "Dry Run Mode: $DRY_RUN"
+fi
 
 [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
 
@@ -113,7 +120,9 @@ for ((idx = ${#to_stop[@]} - 1; idx >= 0; idx--)); do
     entry="${to_stop[idx]}"
     container="${entry%%:*}"
     echo "Stopping $container (timeout ${STOP_TIMEOUT}s)..."
-    docker stop --time "$STOP_TIMEOUT" "$container" > /dev/null
+    if [ "$DRY_RUN" = false ]; then
+        docker stop --time "$STOP_TIMEOUT" "$container" > /dev/null
+    fi
 done
 
 echo "All stateful containers stopped."

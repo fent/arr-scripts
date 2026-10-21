@@ -13,6 +13,7 @@
 # ==============================================================================
 
 # --- CONFIGURATION ---
+DRY_RUN="${DRY_RUN:-true}" # Set to 'false' to actively convert files and update Plex
 PLEX_CONT="plex"
 LIST_FILE="broken-eac3-list.txt"
 
@@ -29,6 +30,9 @@ if [ ! -f "$LIST_FILE" ]; then
 fi
 
 echo "=== STARTING FIX BROKEN AUDIO ==="
+if [ "$DRY_RUN" = true ]; then
+    echo "Dry Run Mode: $DRY_RUN"
+fi
 echo "----------------------------------------"
 
 # Create a temporary copy to iterate over so we can safely modify the original in-place
@@ -55,25 +59,27 @@ while IFS= read -r PLEX_PATH; do
 
     echo "[*] Processing: $(basename "$HOST_PATH")"
 
-    TMP_FILE="${HOST_PATH}.tmp.mkv"
+    if [ "$DRY_RUN" = false ]; then
+        TMP_FILE="${HOST_PATH}.tmp.mkv"
 
-    # Run FFmpeg (Copy Video, Copy Subtitles, Convert Audio to AC3 5.1 640k)
-    # Using -nostdin to prevent ffmpeg from swallowing loop input
-    if ffmpeg -nostdin -y -v error -stats -i "$HOST_PATH" -map 0 -c:v copy -c:s copy -c:a ac3 -b:a 640k "$TMP_FILE" && [ -f "$TMP_FILE" ]; then
-        # Swap the fixed file into place
-        mv "$TMP_FILE" "$HOST_PATH"
-        chmod 0666 "$HOST_PATH"
+        # Run FFmpeg (Copy Video, Copy Subtitles, Convert Audio to AC3 5.1 640k)
+        # Using -nostdin to prevent ffmpeg from swallowing loop input
+        if ffmpeg -nostdin -y -v error -stats -i "$HOST_PATH" -map 0 -c:v copy -c:s copy -c:a ac3 -b:a 640k "$TMP_FILE" && [ -f "$TMP_FILE" ]; then
+            # Swap the fixed file into place
+            mv "$TMP_FILE" "$HOST_PATH"
+            chmod 0666 "$HOST_PATH"
 
-        echo "[✓] Converted successfully. Instructing Plex to re-analyze..."
+            echo "[✓] Converted successfully. Instructing Plex to re-analyze..."
 
-        # Trigger Plex Media Scanner inside the container to update the database
-        docker exec "$PLEX_CONT" /usr/lib/plexmediaserver/Plex\ Media\ Scanner --analyze --file "$PLEX_PATH" > /dev/null 2>&1
+            # Trigger Plex Media Scanner inside the container to update the database
+            docker exec "$PLEX_CONT" /usr/lib/plexmediaserver/Plex\ Media\ Scanner --analyze --file "$PLEX_PATH" > /dev/null 2>&1
 
-        # Safely remove the file from the original list so it can resume cleanly if interrupted
-        sed -i '' "\|${PLEX_PATH}|d" "$LIST_FILE" 2> /dev/null || sed -i "\|${PLEX_PATH}|d" "$LIST_FILE"
-    else
-        echo "[x] FFmpeg failed on $HOST_PATH. Deleting corrupt temp file."
-        rm -f "$TMP_FILE"
+            # Safely remove the file from the original list so it can resume cleanly if interrupted
+            sed -i '' "\|${PLEX_PATH}|d" "$LIST_FILE" 2> /dev/null || sed -i "\|${PLEX_PATH}|d" "$LIST_FILE"
+        else
+            echo "[x] FFmpeg failed on $HOST_PATH. Deleting corrupt temp file."
+            rm -f "$TMP_FILE"
+        fi
     fi
 
     echo "--------------------------------------------------------"

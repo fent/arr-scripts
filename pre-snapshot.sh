@@ -27,8 +27,15 @@ START_DELAY="${START_DELAY:-}"
 STATE_FILE="${STATE_FILE:-/tmp/backup_running_containers.state}"
 USERPREFS="${USERPREFS:-/boot/config/plugins/dockerMan/userprefs.cfg}"
 AUTOSTART="${AUTOSTART:-/var/lib/docker/unraid-autostart}"
+DOCKER_CFG="${DOCKER_CFG:-/boot/config/docker.cfg}"
 
 set -euo pipefail
+
+# Fall back to Unraid's configured Docker stop timeout if not explicitly set
+if [ -z "$STOP_TIMEOUT" ] && [ -f "$DOCKER_CFG" ]; then
+    t=$(awk -F'=' '$1 == "DOCKER_TIMEOUT" { gsub(/["\r]/, "", $2); print $2 }' "$DOCKER_CFG" 2> /dev/null || true)
+    [ -n "$t" ] && STOP_TIMEOUT="$t"
+fi
 
 if [ "$DRY_RUN" = true ]; then
     echo "Dry Run Mode: $DRY_RUN"
@@ -115,13 +122,21 @@ if [ -n "$STATE_FILE" ]; then
 fi
 
 # 4. Stop in reverse order (bottom-to-top) with timeout
-echo "Stopping Docker containers..."
+stop_cmd=(docker stop)
+[ -n "$STOP_TIMEOUT" ] && stop_cmd+=(--time "$STOP_TIMEOUT")
+
+if [ -n "$STOP_TIMEOUT" ]; then
+    echo "Stopping Docker containers (timeout ${STOP_TIMEOUT}s)..."
+else
+    echo "Stopping Docker containers..."
+fi
+
 for ((idx = ${#to_stop[@]} - 1; idx >= 0; idx--)); do
     entry="${to_stop[idx]}"
     container="${entry%%:*}"
-    echo "Stopping $container (timeout ${STOP_TIMEOUT}s)..."
+    echo "Stopping $container..."
     if [ "$DRY_RUN" = false ]; then
-        docker stop --time "$STOP_TIMEOUT" "$container" > /dev/null
+        "${stop_cmd[@]}" "$container" > /dev/null
     fi
 done
 

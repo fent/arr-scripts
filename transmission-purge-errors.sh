@@ -26,14 +26,14 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                             # Set to 'false' to actively delete from Transmission
-INTERACTIVE=true                         # If true and running in a terminal, prompts for confirmation before deleting each item
-CONTAINER_NAME="transmission"            # Name of the Transmission Docker container
-DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
+DRY_RUN="${DRY_RUN:-true}"                                 # Set to 'false' to actively delete from Transmission
+INTERACTIVE="${INTERACTIVE:-true}"                         # If true and running in a terminal, prompts for confirmation before deleting each item
+CONTAINER_NAME="${CONTAINER_NAME:-transmission}"           # Name of the Transmission Docker container
+DOWNLOADS_DIR="${DOWNLOADS_DIR:-/mnt/user/data/downloads}" # Parent path where your source folders live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE"
-TR_PASS="YOUR_PASSWORD_HERE"
+TR_USER="${TR_USER:-YOUR_USERNAME_HERE}"
+TR_PASS="${TR_PASS:-YOUR_PASSWORD_HERE}"
 
 # Target subdirectories to audit
 TARGET_FOLDERS=("tv" "tv-fourk" "movies" "movies-fourk")

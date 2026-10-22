@@ -7,7 +7,7 @@
 DRY_RUN="${DRY_RUN:-false}"
 
 # How long to wait before forcing a container to stop.
-STOP_TIMEOUT="${DOCKER_STOP_TIMEOUT:-}"
+STOP_TIMEOUT="${STOP_TIMEOUT:-}"
 
 # Will only stop containers with a mount pointing to this.
 TARGET_MOUNT_KEYWORD="${TARGET_MOUNT_KEYWORD:-appdata}"

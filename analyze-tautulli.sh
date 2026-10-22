@@ -17,7 +17,7 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-CONTAINER_NAME="tautulli" # Name of the Tautulli Docker container
+CONTAINER_NAME="${CONTAINER_NAME:-tautulli}" # Name of the Tautulli Docker container
 
 echo "=== STARTING ANALYZE TAUTULLI ==="
 echo "----------------------------------------"

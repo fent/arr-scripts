@@ -28,15 +28,15 @@
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DRY_RUN=true                  # Set to 'false' to actively fix and create hard links
-CONTAINER_NAME="transmission" # Name of the Transmission Docker container
+DRY_RUN="${DRY_RUN:-true}"                       # Set to 'false' to actively fix and create hard links
+CONTAINER_NAME="${CONTAINER_NAME:-transmission}" # Name of the Transmission Docker container
 
-DOWNLOADS_DIR="/mnt/user/data/downloads" # Parent path where your source folders live
-MEDIA_DIR="/mnt/user/data/media"         # Parent path where your media libraries live
+DOWNLOADS_DIR="${DOWNLOADS_DIR:-/mnt/user/data/downloads}" # Parent path where your source folders live
+MEDIA_DIR="${MEDIA_DIR:-/mnt/user/data/media}"             # Parent path where your media libraries live
 
 # Transmission Credentials
-TR_USER="YOUR_USERNAME_HERE"
-TR_PASS="YOUR_PASSWORD_HERE"
+TR_USER="${TR_USER:-YOUR_USERNAME_HERE}"
+TR_PASS="${TR_PASS:-YOUR_PASSWORD_HERE}"
 
 # -----------------------------------------------------------------
 # 1:1 FOLDER MAPPINGS (Configure your matching pairs here)

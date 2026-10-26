@@ -165,6 +165,7 @@ for folder in "${TARGET_FOLDERS[@]}"; do
             if [ "$DRY_RUN" = false ]; then
                 should_delete=true
                 if [ "$INTERACTIVE" = true ] && [ -t 3 ]; then
+                    printf '\a' >&2
                     read -r -p "  ▸ Delete this ghost? [y/N/q]: " choice <&3
                     case "$choice" in
                     [yY] | [yY][eE][sS])

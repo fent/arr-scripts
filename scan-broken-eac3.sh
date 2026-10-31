@@ -89,6 +89,18 @@ else
     PLEX_BIN_DIR="/usr/lib/plexmediaserver"
 fi
 
+# Detect Plex application support directory inside the container
+PLEX_APP_SUPPORT=$(docker exec "$PLEX_CONT" sh -c 'PID=$(pidof "Plex Media Server" 2>/dev/null | awk "{print \$1}"); [ -n "$PID" ] && tr "\0" "\n" < "/proc/$PID/environ" 2>/dev/null | sed -n "s/^PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR=//p"' 2> /dev/null)
+if [ -z "$PLEX_APP_SUPPORT" ]; then
+    if docker exec "$PLEX_CONT" test -d "/app/config/Plex Media Server"; then
+        PLEX_APP_SUPPORT="/app/config"
+    elif docker exec "$PLEX_CONT" test -d "/config/Library/Application Support/Plex Media Server"; then
+        PLEX_APP_SUPPORT="/config/Library/Application Support"
+    else
+        PLEX_APP_SUPPORT="/config"
+    fi
+fi
+
 # Auto-populate PATH_MAPPINGS from docker inspect mounts as fallback
 while IFS='|' read -r dst src; do
     if [ -n "$dst" ] && [ -n "$src" ] && [ -z "${PATH_MAPPINGS[$dst]+_}" ]; then
@@ -563,9 +575,9 @@ while IFS='|' read -r section_id metadata_type file; do
                 echo "    [*] Instructing Plex to re-analyze..."
                 if [ "$FINAL_PLEX_PATH" != "$file" ] && [ -n "$section_id" ]; then
                     PLEX_DIR=$(dirname "$FINAL_PLEX_PATH")
-                    docker exec "$PLEX_CONT" "${PLEX_BIN_DIR}/Plex Media Scanner" --scan --refresh --section "$section_id" --directory "$PLEX_DIR" > /dev/null 2>&1 < /dev/null
+                    docker exec "$PLEX_CONT" env PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="$PLEX_APP_SUPPORT" "${PLEX_BIN_DIR}/Plex Media Scanner" --scan --refresh --section "$section_id" --directory "$PLEX_DIR" > /dev/null 2>&1 < /dev/null
                 fi
-                docker exec "$PLEX_CONT" "${PLEX_BIN_DIR}/Plex Media Scanner" --analyze --file "$FINAL_PLEX_PATH" > /dev/null 2>&1 < /dev/null
+                docker exec "$PLEX_CONT" env PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="$PLEX_APP_SUPPORT" "${PLEX_BIN_DIR}/Plex Media Scanner" --analyze --file "$FINAL_PLEX_PATH" > /dev/null 2>&1 < /dev/null
 
                 FIXED=$((FIXED + 1))
                 echo "$UPDATED_HOST_PATH" >> "$FIXED_FILE"

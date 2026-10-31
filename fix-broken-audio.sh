@@ -24,6 +24,30 @@ declare -A PATH_MAPPINGS=(
 )
 # ---------------------
 
+if ! docker ps --format '{{.Names}}' | grep -q "^${PLEX_CONT}$"; then
+    echo "Error: Docker container '${PLEX_CONT}' is not running."
+    exit 1
+fi
+
+# Locate Plex binaries inside the container (supports Hotio, Official, LinuxServer, Binhex)
+if docker exec "$PLEX_CONT" test -f "/app/bin/usr/lib/plexmediaserver/Plex Media Scanner"; then
+    PLEX_BIN_DIR="/app/bin/usr/lib/plexmediaserver"
+else
+    PLEX_BIN_DIR="/usr/lib/plexmediaserver"
+fi
+
+# Detect Plex application support directory inside the container
+PLEX_APP_SUPPORT=$(docker exec "$PLEX_CONT" sh -c 'PID=$(pidof "Plex Media Server" 2>/dev/null | awk "{print \$1}"); [ -n "$PID" ] && tr "\0" "\n" < "/proc/$PID/environ" 2>/dev/null | sed -n "s/^PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR=//p"' 2> /dev/null)
+if [ -z "$PLEX_APP_SUPPORT" ]; then
+    if docker exec "$PLEX_CONT" test -d "/app/config/Plex Media Server"; then
+        PLEX_APP_SUPPORT="/app/config"
+    elif docker exec "$PLEX_CONT" test -d "/config/Library/Application Support/Plex Media Server"; then
+        PLEX_APP_SUPPORT="/config/Library/Application Support"
+    else
+        PLEX_APP_SUPPORT="/config"
+    fi
+fi
+
 if [ ! -f "$LIST_FILE" ]; then
     echo "Error: Could not find $LIST_FILE in the current directory."
     exit 1
@@ -72,7 +96,7 @@ while IFS= read -r PLEX_PATH; do
             echo "[✓] Converted successfully. Instructing Plex to re-analyze..."
 
             # Trigger Plex Media Scanner inside the container to update the database
-            docker exec "$PLEX_CONT" /usr/lib/plexmediaserver/Plex\ Media\ Scanner --analyze --file "$PLEX_PATH" > /dev/null 2>&1
+            docker exec "$PLEX_CONT" env PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="$PLEX_APP_SUPPORT" "${PLEX_BIN_DIR}/Plex Media Scanner" --analyze --file "$PLEX_PATH" > /dev/null 2>&1
 
             # Safely remove the file from the original list so it can resume cleanly if interrupted
             sed -i '' "\|${PLEX_PATH}|d" "$LIST_FILE" 2> /dev/null || sed -i "\|${PLEX_PATH}|d" "$LIST_FILE"

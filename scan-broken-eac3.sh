@@ -459,10 +459,12 @@ format_num "$TOTAL_FILES" TOTAL_FMT
 echo "Found $TOTAL_FMT standard EAC3 files to test."
 
 OUTPUT_FILE="$(pwd)/broken-eac3-list.txt"
+FIXED_FILE="$(pwd)/fixed-eac3-list.txt"
 
 # If we are starting from 0, clear the output file. Otherwise, append to it.
 if [ "$CONTINUE_FROM" -eq 0 ]; then
     : > "$OUTPUT_FILE"
+    : > "$FIXED_FILE"
     echo "Starting deep scan from the beginning..."
 else
     echo "Resuming scan from file #$CONTINUE_FROM. Appending to existing broken-eac3-list.txt..."
@@ -566,6 +568,7 @@ while IFS='|' read -r section_id metadata_type file; do
                 docker exec "$PLEX_CONT" "${PLEX_BIN_DIR}/Plex Media Scanner" --analyze --file "$FINAL_PLEX_PATH" > /dev/null 2>&1 < /dev/null
 
                 FIXED=$((FIXED + 1))
+                echo "$UPDATED_HOST_PATH" >> "$FIXED_FILE"
                 echo "    [✔] Fixed and re-analyzed: $(basename "$UPDATED_HOST_PATH")"
             else
                 echo "    [✖] FFmpeg conversion failed on $HOST_PATH. Cleaning up temp file."
@@ -590,6 +593,9 @@ if [ "$FIX_AUDIO" = true ] && [ "$DRY_RUN" = true ]; then
     echo "List saved to $OUTPUT_FILE"
 elif [ "$FIX_AUDIO" = true ]; then
     echo "Scan complete! Found $BROKEN_FMT corrupted files; fixed $FIXED_FMT in-place."
+    if [ "$FIXED" -gt 0 ]; then
+        echo "Fixed files saved to $FIXED_FILE"
+    fi
     if [ "$BROKEN" -gt "$FIXED" ]; then
         echo "Unfixed files saved to $OUTPUT_FILE"
     fi
@@ -604,7 +610,12 @@ if [ "$BROKEN" -gt 0 ] && [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ 
     if [ "$FIX_AUDIO" = true ] && [ "$DRY_RUN" = true ]; then
         /usr/local/emhttp/webGui/scripts/notify -i warning -s "Plex EAC3 Scan (Dry Run)" -d "Found $BROKEN_FMT broken EAC3 files; $WOULD_FIX_FMT would be fixed. No files were modified."
     elif [ "$FIX_AUDIO" = true ]; then
-        /usr/local/emhttp/webGui/scripts/notify -i normal -s "Plex EAC3 Scan" -d "Found $BROKEN_FMT broken EAC3 files and fixed $FIXED_FMT in-place."
+        if [ "$FIXED" -le 3 ] && [ "$FIXED" -gt 0 ]; then
+            FIXED_NAMES=$(while IFS= read -r f; do basename "$f"; done < "$FIXED_FILE" | paste -sd ", " -)
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Plex EAC3 Scan" -d "Fixed $FIXED_FMT file(s): $FIXED_NAMES"
+        else
+            /usr/local/emhttp/webGui/scripts/notify -i normal -s "Plex EAC3 Scan" -d "Found $BROKEN_FMT broken EAC3 files and fixed $FIXED_FMT in-place. See fixed-eac3-list.txt for details."
+        fi
     else
         /usr/local/emhttp/webGui/scripts/notify -i warning -s "Plex EAC3 Scan" -d "Found $BROKEN_FMT broken EAC3 files. See broken-eac3-list.txt for details."
     fi

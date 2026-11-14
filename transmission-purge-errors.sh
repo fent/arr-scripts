@@ -28,6 +28,7 @@
 # ==========================================
 DRY_RUN="${DRY_RUN:-true}"                                 # Set to 'false' to actively delete from Transmission
 INTERACTIVE="${INTERACTIVE:-true}"                         # If true and running in a terminal, prompts for confirmation before deleting each item
+MAX_DELETE="${MAX_DELETE:-50}"                             # Safety circuit breaker: abort with 0 deletions if candidates exceed this count (0 = unlimited)
 CONTAINER_NAME="${CONTAINER_NAME:-transmission}"           # Name of the Transmission Docker container
 DOWNLOADS_DIR="${DOWNLOADS_DIR:-/mnt/user/data/downloads}" # Parent path where your source folders live
 
@@ -47,6 +48,11 @@ NBSP=$'\xC2\xA0' # Non-breaking space for web UI formatting
 
 echo "=== STARTING TRANSMISSION PURGE ERRORS ==="
 echo "Dry Run Mode: $DRY_RUN"
+if [ "$MAX_DELETE" -gt 0 ]; then
+    echo "Max Delete Limit: $MAX_DELETE"
+else
+    echo "Max Delete Limit: unlimited"
+fi
 echo "----------------------------------------"
 
 # Save original stdin (fd 3) so interactive prompts can read from terminal even inside redirected loops
@@ -54,6 +60,10 @@ exec 3<&0
 trap 'exec 3<&-' EXIT
 PURGED_COUNT=0
 PURGED_KBYTES=0
+CANDIDATE_IDS=()
+CANDIDATE_PATHS=()
+CANDIDATE_NAMES=()
+CANDIDATE_KBYTES=()
 
 # Fast pure-bash function to format numbers with commas
 format_num() {
@@ -172,34 +182,10 @@ for tid in $ALL_IDS; do
 
                 printf "%-*s | %-*s | %-*s\n" "$name_width" "$disp_name" "$COL_SIZE" "$HUMAN_SIZE" "$err_width" "$disp_err" | sed "s/  /${NBSP}${NBSP}/g"
 
-                if [ "$DRY_RUN" = false ]; then
-                    should_delete=true
-                    if [ "$INTERACTIVE" = true ] && [ -t 3 ]; then
-                        printf '\a' >&2
-                        read -r -p "  ▸ Delete this errored torrent? [y/N/q]: " choice <&3
-                        case "$choice" in
-                        [yY] | [yY][eE][sS])
-                            should_delete=true
-                            ;;
-                        [qQ] | [qQ][uU][iI][tT])
-                            echo "  ▸ Aborting."
-                            should_delete=false
-                            break
-                            ;;
-                        *)
-                            echo "  ▸ Skipped."
-                            should_delete=false
-                            ;;
-                        esac
-                    fi
-
-                    if [ "$should_delete" = true ]; then
-                        docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
-                        rm -rf "$ITEM_PATH"
-                        PURGED_COUNT=$((PURGED_COUNT + 1))
-                        PURGED_KBYTES=$((PURGED_KBYTES + ITEM_KBYTES))
-                    fi
-                fi
+                CANDIDATE_IDS+=("$tid")
+                CANDIDATE_PATHS+=("$ITEM_PATH")
+                CANDIDATE_NAMES+=("$TORRENT_NAME")
+                CANDIDATE_KBYTES+=("$ITEM_KBYTES")
             fi
         fi
     fi
@@ -211,15 +197,64 @@ fi
 
 # Convert exact summaries to clean, human-readable strings
 HUMAN_ERROR_SIZE=$(awk -v kb="$TOTAL_TRACKER_ERR_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
+format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
+
+if [ "$MAX_DELETE" -gt 0 ] && [ "$TRACKER_ERR_COUNT" -gt "$MAX_DELETE" ]; then
+    format_num "$MAX_DELETE" MAX_DELETE_FMT
+    if [ "$DRY_RUN" = true ]; then
+        echo "WARNING: Candidate count ($TRACKER_ERR_COUNT_FMT) exceeds MAX_DELETE ($MAX_DELETE_FMT); a live run would abort with 0 deletions."
+    else
+        echo "ERROR: Safety circuit breaker tripped! Found $TRACKER_ERR_COUNT_FMT broken torrents ($HUMAN_ERROR_SIZE), exceeding MAX_DELETE=$MAX_DELETE_FMT."
+        echo "       Aborting with 0 deletions. Set MAX_DELETE=0 to override manually if intentional."
+        if [ -f "/usr/local/emhttp/webGui/scripts/notify" ] && [ ! -t 1 ] && ! grep -q "startScript.sh" "/proc/${PPID}/cmdline" 2> /dev/null; then
+            /usr/local/emhttp/webGui/scripts/notify -i alert -s "Transmission Errors Aborted" -d "Safety limit tripped: $TRACKER_ERR_COUNT_FMT broken torrents ($HUMAN_ERROR_SIZE) exceeds MAX_DELETE=$MAX_DELETE_FMT. 0 deleted."
+        fi
+        exit 1
+    fi
+fi
+
+if [ "$DRY_RUN" = false ] && [ "$TRACKER_ERR_COUNT" -gt 0 ]; then
+    for ((idx = 0; idx < ${#CANDIDATE_PATHS[@]}; idx++)); do
+        tid="${CANDIDATE_IDS[$idx]}"
+        cpath="${CANDIDATE_PATHS[$idx]}"
+        cname="${CANDIDATE_NAMES[$idx]}"
+        ckb="${CANDIDATE_KBYTES[$idx]}"
+
+        should_delete=true
+        if [ "$INTERACTIVE" = true ] && [ -t 3 ]; then
+            printf '\a' >&2
+            read -r -p "  ▸ Delete errored torrent '${cname}'? [y/N/q]: " choice <&3
+            case "$choice" in
+            [yY] | [yY][eE][sS])
+                should_delete=true
+                ;;
+            [qQ] | [qQ][uU][iI][tT])
+                echo "  ▸ Aborting."
+                break
+                ;;
+            *)
+                echo "  ▸ Skipped."
+                should_delete=false
+                ;;
+            esac
+        fi
+
+        if [ "$should_delete" = true ]; then
+            docker exec "$CONTAINER_NAME" transmission-remote "${AUTH_ARGS[@]}" -t "$tid" --remove > /dev/null < /dev/null
+            rm -rf "$cpath"
+            PURGED_COUNT=$((PURGED_COUNT + 1))
+            PURGED_KBYTES=$((PURGED_KBYTES + ckb))
+        fi
+    done
+fi
+
 HUMAN_PURGED_SIZE=$(awk -v kb="$PURGED_KBYTES" 'BEGIN {printf (kb>=1048576)?"%.2f GB":((kb>=1024)?"%.2f MB":"%d KB"), (kb>=1048576)?kb/1048576:((kb>=1024)?kb/1024:kb)}')
 
 echo "----------------------------------------"
 if [ "$DRY_RUN" = true ]; then
-    format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
     echo "=== SUMMARY: [DRY-RUN] $TRACKER_ERR_COUNT_FMT broken torrents found, would reclaim $HUMAN_ERROR_SIZE ==="
 else
     format_num "$PURGED_COUNT" PURGED_COUNT_FMT
-    format_num "$TRACKER_ERR_COUNT" TRACKER_ERR_COUNT_FMT
     if [ "$PURGED_COUNT" -eq "$TRACKER_ERR_COUNT" ]; then
         echo "=== SUMMARY: Purged $PURGED_COUNT_FMT broken torrents, reclaimed $HUMAN_PURGED_SIZE ==="
     else
